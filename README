@@ -1,0 +1,71 @@
+-*-outline-*-
+
+* If the lower level driver gives us an auto-repeated press:
+
+1 st press -> fork
+2 nd press  -> somehow does not repeat
+   release -> release the fork ?
+
+   
+
+
+
+DeviceIntPtr  ->    _DeviceIntRec
+
+
+Device ->    local =  (pinfo)
+               |
+               v
+             driver  -> module
+
+
+
+
+
+
+
+
+* xc/programs/Xserver/include/inputstr.h
+    init of the data:
+  xc/programs/Xserver/dix/devices.c
+
+
+* xc/programs/Xserver/xkb/xkb.c
+     requests to load the plugin
+   and  (try to) process unknown requests !!!
+      
+*  xc/programs/Xserver/xkb/xkbPrKeyEv.c
+        pushing 'normal' events to the plugin
+
+* /usr/X11R6/include/X11/extensions/XKBsrv.h
+        
+
+
+
+*btw.  key-repeat:
+
+* xc/programs/Xserver/xkb/xkbAccessX.c
+* xc/include/extensions/XKBsrv.h
+
+
+
+
+* Installing:
+i had to:
+make install.sdk
+
+
+for the xkb-tools:
+cp xc/lib/X11/XKBlibint.h  /usr/X11R6/include/X11/ 
+
+
+
+
+
+
+
+
+
+/* all the include files are intended for C, so:   i still had to modify them,
+   "class" and "public"
+   are keywords in C++*/
