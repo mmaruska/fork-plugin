@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2005 Michal Maruska <mmaruska@gmail.com>
+ * Copyright (C) 2003-2005-2010 Michal Maruska <mmaruska@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,9 +17,11 @@
  */
 
 
-/* fixme:  When we change the VT, we should release all forked stuff! Simply push e EOF event. */
+/* fixme:  When we change the VT, we should release all forked stuff!
+   Simply push e EOF event. */
 
-/* note: all functions should be *.so local (static), accessible only via slots in exported structure! */
+/* note: all functions should be *.so local (static), accessible only via
+   slots in exported structure! */
 
 /* possible bug:
    time 0 could be a valid time?
@@ -40,8 +42,6 @@
 //
 //
 //  lock is gone!! <- action
-
-
 
 
 /* performance enhancement:
@@ -99,6 +99,32 @@ char const *state_description[]={
    "activated"
 };
 
+const char* event_names[] = {
+    "KeyPress",
+    "KeyRelease",
+    "ButtonPress",
+    "ButtonRelease",
+    "Motion",
+    "Enter",
+    "Leave",
+    // 9
+    "FocusIn",
+    "FocusOut",
+    "ProximityIn",
+    "ProximityOut",
+    // 13
+    "DeviceChanged",
+    "Hierarchy",
+    "DGAEvent",
+    // 16
+    "RawKeyPress",
+    "RawKeyRelease",
+    "RawButtonPress",
+    "RawButtonRelease",
+    "RawMotion",
+    "XQuartz"
+};
+
 
 /* memory problems:
  *     machine->previous_event
@@ -121,11 +147,19 @@ press_p(const InternalEvent* event)
    return (event->any.type == ET_KeyPress);
 }
 
+inline const char*
+event_type_brief(InternalEvent *event)
+{
+    return (press_p(event)?"down":
+	    (release_p(event)?"up":"??"));
+}
+
+
 #define down_p(c) (keyc->down[c>>3] & (1<<(c&7)))
 
 
 inline Bool
-forkable_p(fork_configuration_rec* config, KeyCode code)
+forkable_p(fork_configuration* config, KeyCode code)
 {
    return (config->fork_keycode[code]);
 }
@@ -154,50 +188,47 @@ extern char *	XkbKeysymText(
    );
 
 
-#define BUFFER_LEN 200
-//static const int buffer_lenght = 200;
+// static implicitly
+const int BufferLenght = 200;
 
 /* the returned string is in static space. don't free it! */
-static char*
+static const char*
 describe_key(DeviceIntPtr keybd, InternalEvent *event)
 {
-   assert (event);
+    assert (event);
 
-   static char buffer[BUFFER_LEN];
-   XkbSrvInfoPtr xkbi= keybd->key->xkbInfo;
-   KeyCode key = detail_of(event);
-   // assert(0 <= keycode <= (max_key_code - min_key_code));
+    static char buffer[BufferLenght];
+    XkbSrvInfoPtr xkbi= keybd->key->xkbInfo;
+    KeyCode key = detail_of(event);
+    char* keycode_name = xkbi->desc->names->keys[key].name;
+    // assert(0 <= key <= (max_key_code - min_key_code));
 
-   char* keycode_name = xkbi->desc->names->keys[key].name;
+    const KeySym *sym= XkbKeySymsPtr(xkbi->desc,key);
+    if ((!sym) || (! isalpha(*(unsigned char*)sym)))
+	sym = (KeySym*) " ";
 
-   // keycode Name:   LSHT  AE13  ...
-   //  keysym in  0/1  ?
-   /* DB(("1\n")); */
-   
-   const KeySym *sym= XkbKeySymsPtr(xkbi->desc,key);
-   if ((!sym) || (! isalpha(*(unsigned char*)sym)))
-      sym = (KeySym*) " ";
+    /* inside server it's useless:  XkbKeysymText(*sym, XkbCFile),
+     * fixme: XKeysymToString(*sym), */
+    snprintf(buffer, BufferLenght, "(%s) %d %4.4s -> %c %s (%u)",
+	     keybd->name,
+	     key, keycode_name,(char)*sym,
+	     event_type_brief(event),(unsigned int)time_of(event));
 
-   snprintf(buffer, BUFFER_LEN, "(%s) %d %c %s (%u)",
-	    keybd->name,
-	    key, (char)*sym,
-	    (press_p(event)?"down":"up"),(int)time_of(event));
-
-   /* XkbKeysymText or XKeysymToString */
-   DB(("(%s) %d %4.4s -> %c  %s (%u)", keybd->name, key, keycode_name,
-       /* inside server it's useless:  XkbKeysymText(*sym, XkbCFile), /* fixme: XKeysymToString(*sym), */
-       (char)*sym, (press_p(event)?"down":"up"), (int)time_of(event)));
-   return buffer;
+#if 0
+    DB(("(%s) %d %4.4s -> %c  %s (%u)", keybd->name, key, keycode_name,
+	(char)*sym, event_type_brief(event), (unsigned int)time_of(event)));
+#endif
+    return buffer;
 }
 
 
 /* the returned string is in static space. don't free it! */
-static char*
+static const char*
 describe_machine_state(machineRec* machine)
 {
-   static char buffer[BUFFER_LEN];
+   static char buffer[BufferLenght];
 
-   snprintf(buffer, BUFFER_LEN, "%s[%dm%s%s",
+   snprintf(buffer, BufferLenght, "%s[%dm%s%s",
             escape_sequence, 32 + machine->state,
             state_description[machine->state], color_reset);
 
@@ -207,21 +238,19 @@ describe_machine_state(machineRec* machine)
 
 /* push the event to the next plugin. ownership is transfered! */
 inline void
-hand_over_event_to_next_plugin(cons& handle, plugin_instance* plugin)
+hand_over_event_to_next_plugin(InternalEvent *event, plugin_instance* plugin)
 {
    plugin_instance* next = plugin->next;
-   InternalEvent *event = handle.car;
 
 #if DEBUG
    if (((machineRec*) plugin_machine(plugin))->config->debug)
       {
          DeviceIntPtr keybd = plugin->device;
          DB(("%s<<<", keysym_color));
-         describe_key(keybd, event);
+         DB(("%s", describe_key(keybd, event)));
          DB(("%s\n", color_reset));
       }
 #endif
-
    assert (!plugin_frozen(next));
    memory_balance -= event->any.length;
    PluginClass(next)->ProcessEvent(next, event, TRUE); // we give away the ownership
@@ -239,17 +268,16 @@ try_to_output(plugin_instance* plugin)
    assert(machine->lock);
 #endif   
    
-   list_with_tail &q = machine->output_queue;
+   list_with_tail &queue = machine->output_queue;
    plugin_instance* next = plugin->next;
 
    MDB(("%s: Queues: output: %d\t internal: %d\t input: %d \n", __FUNCTION__,
-        queue_lenght(q),
+        queue_lenght(queue),
         queue_lenght(machine->internal_queue),
         queue_lenght(machine->input_queue)));
 
-
-   while ((!plugin_frozen(next)) && (q.head)) {
-       cons* old = pop_from_queue(q, 0);
+   while ((!plugin_frozen(next)) && (queue.head)) {
+       cons* old = pop_from_queue(queue, 0);
 
        /* fixme: ownership! */
 #if STATIC_LAST
@@ -269,12 +297,17 @@ try_to_output(plugin_instance* plugin)
 	       /* fixme:  is it the handle or event? */
 	   }
 #endif
+       {
+	 InternalEvent* event = old->car;
+	 mxfree(old, sizeof(cons));
 
-       hand_over_event_to_next_plugin(*old, plugin);
-       mxfree(old, sizeof(cons));
+	 machine->lock = 0;
+	 hand_over_event_to_next_plugin(event, plugin);
+	 machine->lock = 1;
+       }
    };
-   if (!plugin_frozen(next) && (queue_lenght(q) > 0)){
-      MDB(("%s: still %d events to output\n", __FUNCTION__, queue_lenght(q)));
+   if (!plugin_frozen(next) && (queue_lenght(queue) > 0)){
+      MDB(("%s: still %d events to output\n", __FUNCTION__, queue_lenght(queue)));
    }
 }
 
@@ -285,32 +318,7 @@ try_to_output(plugin_instance* plugin)
 static void
 send_message_about_event(DeviceIntPtr keybd, cons *handle)
 {
-
-#if 0
-   typedef struct _xkbActionMessage {
-      BYTE	type;
-      BYTE	xkbType;
-      CARD16	sequenceNumber B16;
-      Time	time B32;
-      CARD8	deviceID;
-      KeyCode	keycode;
-      BOOL	press;
-      BOOL	keyEventFollows;
-      CARD8	mods;
-      CARD8	group;
-      CARD8	message[8];
-      CARD16	pad1 B16;
-      CARD32	pad2 B32;
-      CARD32	pad3 B32;
-   } xkbActionMessage;
-#define	sz_xkbActionMessage		32
-#endif
-
-   // XkbMessageAction msg;
-
-   // static
    xkbActionMessage	msg;
-   
    // the time !!! 
    InternalEvent *event = handle->car;
    
@@ -328,9 +336,6 @@ send_message_about_event(DeviceIntPtr keybd, cons *handle)
 }
 
 
-
-/* event queue:   xfree processing  ---> this plugin  --(key-repeat?)-->  XKB  */
-/* this is to call in XKB */
 static void
 output_event(cons* handle, plugin_instance* plugin, const char* comment)
 {
@@ -350,33 +355,37 @@ output_event(cons* handle, plugin_instance* plugin, const char* comment)
 #if 0   
    // first inform the central client ..
    send_message_about_event(plugin->device, handle);
-   // this could be  wrong?  if we don't `run' lazily, we could accumulate events, just to `replay' them later!
+   // this could be  wrong?  if we don't `run' lazily, we could accumulate events, just to
+   // `replay' them later!
 #endif 
 
    push_on_queue(machine->output_queue, handle);
-   try_to_output(plugin);       // maybe call it later?
+   try_to_output(plugin);
 };
 
+/* event* we copy a pointer !!!  */
+#define emit_event(handle) {output_event(handle, plugin, "");}
 
 
 
-
-/*  Operations on the machine
-    fixme: should it include the `self_forked' keys ?
-    `self_forked' means, that i decided to NOT fork. to mark this decision (for when a repeated event arrives), i fork it to its own keycode
-*/
+/**
+ * Operations on the machine
+ * fixme: should it include the `self_forked' keys ?
+ * `self_forked' means, that i decided to NOT fork. to mark this decision
+ * (for when a repeated event arrives), i fork it to its own keycode
+ */
 
 
 /* return the keycode into which CODE has forked (last time). returns code itself, if not forked. */
 inline Bool
-forked(machineRec *machine, KeyCode code)
+forked_to(machineRec *machine, KeyCode code)
 {
    return (machine->forkActive[code]);
 }
 
 
 /* fixme: should I make the machine a C++ object (class). with its methods? */
-inline state_type
+inline void
 change_state(machineRec* machine, state_type new_state)
 {
    machine->state = new_state;
@@ -386,7 +395,7 @@ change_state(machineRec* machine, state_type new_state)
 
 
 inline Time
-verification_interval_of(fork_configuration_rec* config, KeyCode code, KeyCode verificator)
+verification_interval_of(fork_configuration* config, KeyCode code, KeyCode verificator)
 {
    
    return (config->verification_interval_per_key[code][verificator]?
@@ -398,7 +407,7 @@ verification_interval_of(fork_configuration_rec* config, KeyCode code, KeyCode v
 
 
 inline Time
-overlap_tolerance_of(fork_configuration_rec* config, KeyCode code, KeyCode verificator)
+overlap_tolerance_of(fork_configuration* config, KeyCode code, KeyCode verificator)
 {
    return (config->overlap_tolerance_per_key[code][verificator] ?
            config->overlap_tolerance_per_key[code][verificator]:
@@ -407,13 +416,12 @@ overlap_tolerance_of(fork_configuration_rec* config, KeyCode code, KeyCode verif
             config->overlap_tolerance)) ;
 }
 
-/* event* we copy a pointer !!!  */
-#define emit_event(handle) {output_event(handle, plugin, "");}
 
 
-/* fork the 1st element on queue (the internal_queue). Remove it from the queue, and push to the outpu_queue.
+/* fork the 1st element on queue (the internal_queue). Remove it from the queue
+ * and push to the output_queue.
  *
- * todo: Should i have a link back from machine to the plugin?  here useful!
+ * todo: Should i have a link back from machine to the plugin? Here useful!
  * todo:  do away with the `forked_key' argument --- it's useless!
  * */
 inline void
@@ -421,15 +429,14 @@ activate_fork(machineRec *machine, list_with_tail &queue, plugin_instance* plugi
 {
    assert(queue.head);
    assert(detail_of(queue.head->car) == forked_key);
-
    //assert(queue == machine->internal_queue);
    
    cons* handle = pop_from_queue(queue, 0);
 
    /* change the keycode, but remember the original: */
    handle->forked = forked_key;
-   machine->forkActive[forked_key] = handle->car->device_event.detail.key =
-       machine->config->fork_keycode[forked_key]; /* todo:  set_detail_of */
+   machine->forkActive[forked_key] = /* todo:  set_detail_of */
+       handle->car->device_event.detail.key = machine->config->fork_keycode[forked_key]; 
 
    change_state(machine,activated);
    output_event(handle, plugin, __FUNCTION__);
@@ -438,7 +445,6 @@ activate_fork(machineRec *machine, list_with_tail &queue, plugin_instance* plugi
         forked_key,
         machine->config->fork_keycode[forked_key], // fixme: -1
         queue_lenght(machine->internal_queue),
-
         describe_machine_state(machine)));
 }
 
@@ -466,7 +472,6 @@ step_fork_automaton_by_force(machineRec *machine, plugin_instance* plugin) /* fi
 
    /* so, the state is either  verify, suspect or activated. */
    list_with_tail& queue = machine->internal_queue;
-
    KeyCode suspected = detail_of(queue.head->car);
 
    MDB(("%s%s%s state: %s, queue: %d .... FORCE\n",
@@ -475,7 +480,6 @@ step_fork_automaton_by_force(machineRec *machine, plugin_instance* plugin) /* fi
         queue_lenght(queue)));
 
    machine->time_left = 0;
-   /* activate_fork(machineRec *machine, event_queue* queue, KeyCode suspected, xEvent** output_event)  */
    activate_fork(machine, queue, plugin, suspected);
    return;
 }
@@ -493,15 +497,13 @@ step_fork_automaton_by_force(machineRec *machine, plugin_instance* plugin) /* fi
 
 static void
 step_fork_automaton_by_time(machineRec *machine, plugin_instance* plugin, Time current_time)
-/* fixme: output ?? */
 {
    if ((machine->state == normal) || (machine->state == deactivated)) {
-      ErrorF("%s: unexpeced: %s!", __FUNCTION__, describe_machine_state(machine));
+      ErrorF("%s: unexpected: %s!", __FUNCTION__, describe_machine_state(machine));
       // impossible
       return;
    };
    
-
    list_with_tail &queue = machine->internal_queue;
    if (! queue.head){
       DB(("%s: the internal queue is empty. Most likely the last event caused freeze,"
@@ -511,7 +513,6 @@ step_fork_automaton_by_time(machineRec *machine, plugin_instance* plugin, Time c
    
    // confirm fork: 
    int reason;
-
    KeyCode suspected = detail_of(queue.head->car);
    
    MDB(("%s%s%s state: %s, queue: %d, time: %u key: %d\n",
@@ -521,16 +522,18 @@ step_fork_automaton_by_time(machineRec *machine, plugin_instance* plugin, Time c
 
    /* First, i try the simple (fork-by-one-keys).
     * If that works, -> fork! Otherwise, i try w/ 2-key forking, overlapping.
-    * */
+    */
    {
-      int verification_interval = verification_interval_of(machine->config,suspected, machine->verificator); // fixme the  follower,
+      int verification_interval = verification_interval_of(machine->config, suspected,
+							   machine->verificator);
+      // fixme the  follower,
       // not verificator, but for now
-      machine->time_left = verification_interval  -  (current_time - machine->suspect_time); // time_of(event)
-      
+      machine->time_left = verification_interval - (current_time - machine->suspect_time);
       MDB(("time: verification_interval = %dms elapsed so far =%dms  ->", verification_interval,
 	   (int)(current_time - machine->suspect_time)));
 
-      if (machine->time_left <= 0){ /* time_difference_more(machine->suspect_time, time_of(event), verification_interval)) */
+      if (machine->time_left <= 0){
+	  /* time_difference_more(machine->suspect_time, time_of(event), verification_interval)) */
          // we fork.
          reason = reason_total;
          goto confirm_fork;
@@ -538,9 +541,7 @@ step_fork_automaton_by_time(machineRec *machine, plugin_instance* plugin, Time c
    }
 
    /* To test 2 keys overlap, we need the 2nd key: a verificator! */
-
    if (machine->state == verify) {
-      // suspect
       // verify overlap
       int overlap_tolerance = overlap_tolerance_of(machine->config, suspected, machine->verificator);
       int another_time_left =  overlap_tolerance -  (current_time - machine->verificator_time);
@@ -550,7 +551,9 @@ step_fork_automaton_by_time(machineRec *machine, plugin_instance* plugin, Time c
       
       MDB(("time: overlay interval = %dms elapsed so far =%dms  ->", overlap_tolerance,
 	   (int) (current_time - machine->verificator_time)));
-      if (machine->time_left <= 0) { /* verification_interval)  time_difference_more(machine->verificator_time, current_time, overlap_tolerance)*/
+      if (machine->time_left <= 0) {
+	  /* verification_interval)  time_difference_more(machine->verificator_time, current_time,
+	     overlap_tolerance)*/
          reason = reason_overlap;
          goto confirm_fork;
       }
@@ -561,9 +564,9 @@ step_fork_automaton_by_time(machineRec *machine, plugin_instance* plugin, Time c
    /* so, we were woken too early. */
    assert (machine->time_left > 0);
    /* MDB */
-   DB(("*** %s: returning with some more time-to-wait: %d\n", __FUNCTION__, machine->time_left));
+   DB(("*** %s: returning with some more time-to-wait: %d (prematurely waken)\n", __FUNCTION__,
+       machine->time_left));
    return;
-
 
   confirm_fork:
    machine->time_left = 0;
@@ -572,15 +575,411 @@ step_fork_automaton_by_time(machineRec *machine, plugin_instance* plugin, Time c
 }
 
 
-/* apply EVENT to (STATE, QUEUE, TIME), both given by the MACHINE.
- * returns also the OUTPUT
+static void
+do_enqueue_event(machineRec *machine, cons *handle)
+{
+   // either press, or release of another key.
+   // i have to disable the _last_ press.
+   // fixme  key or xkbi->repeatKey ??
+
+   push_on_queue(machine->internal_queue, handle);
+   MDB(("enqueue_event: time left: %d\n", machine->time_left));         // we don't emit here...
+   return;
+}
+
+static void
+do_confirm_non_fork(machineRec *machine, cons *handle, plugin_instance* plugin)
+{
+   assert(machine->time_left == 0);
+   change_state(machine,deactivated);
+   /* produce the 2 events.... */
+   push_on_queue(machine->internal_queue, handle); //  this  will be re-processed!!
+
+   cons* non_forked_handle = pop_from_queue(machine->internal_queue, 0);
+   MDB(("this is not a fork! %d\n",
+	detail_of(non_forked_handle->car)));
+   emit_event(non_forked_handle);
+   return;
+}
+
+// so HANDLE confirms fork of the suspect- first event on the internale_queue.
+static void
+do_confirm_fork(machineRec *machine, cons *handle, plugin_instance* plugin)
+{
+   if (machine->time_left < 0)
+       machine->time_left = 0;
+
+   /* fixme: handle is the just-read event. But that is surely not the head
+      of queue (which is confirmed to fork) */
+    
+   activate_fork(machine, machine->internal_queue, plugin,
+		 detail_of(machine->internal_queue.head->car));
+   push_on_queue(machine->internal_queue, handle);
+   DB(("confirm:\n"));
+   return;
+}
+
+inline Time
+time_of_previous_event(machineRec *machine, cons *handle)
+{
+#if KEEP_PREVIOUS
+    return time_of(handle->previous->car);
+#else
+    return machine->time_of_last_output;
+#endif 
+}
+
+
+#define suspected_p(k)     (k == suspected)
+
+static void
+apply_event_to_verify(machineRec *machine, cons *handle, plugin_instance* plugin)
+{
+    InternalEvent* event = handle->car;
+    Time simulated_time = time_of(event);
+    KeyCode key = detail_of(event);
+
+    list_with_tail &queue = machine->internal_queue;
+    KeyCode suspected = detail_of(queue.head->car);
+
+    /*
+      first
+      second
+      third  < we are here now.
+      ???? how long?
+      second Released.
+      So, already 2 keys have been pressed, and still no decision.
+      Now we have the 3rd key.
+      We wait only for time, and for the release of the key */
+      
+    /* We pressed the forkable key, and another one (which could possibly
+       use the modifier). Now, either the forkable key was intended
+       to be `released' before the press of the other key (and we have an
+       error due to mis-synchronization), or in fact, the forkable
+       was actuallly `used' as a modifier. 
+       motivation:  we want to press the modifier for short time (simultaneously
+       pressing other keys). But sometimes writing quickly, we
+       press before we release the previous letter. We handle this, ignoring
+       a short overlay. E.i. we wait for the verification key
+       to be pressed at least ...ms in parallel.
+    */
+
+    /* if we release quickly either the suspected, or the verifying key, then ....  otherwise ? */
+    /* release timeout !!!  */
+    /* fixme: if the suspected key is another modifier? and we press other keys,
+       what happens? so far, we don't care about the `verificator' */
+
+    /* as before, in the suspect case, we check the 1-key timeout ? But this time,
+       we have the 2 key, and we can have a more specific parameter:  Some keys
+       are slow to release, when we press a specific one afterwards. So in this case fork slower!
+    */
+    int verification_interval = verification_interval_of(machine->config, suspected, machine->verificator);
+      
+    machine->time_left = verification_interval - (simulated_time - machine->suspect_time);
+
+    if (machine->time_left <= 0) { 
+	do_confirm_fork(machine, handle, plugin);
+	return;
+    };
+
+    /* now, check the overlap of the 2 first keys */
+    int overlap_tolerance = overlap_tolerance_of(machine->config, suspected, machine->verificator);
+    int another_time_left =  overlap_tolerance -  (simulated_time - machine->verificator_time);
+    if (another_time_left < machine->time_left)
+	machine->time_left = another_time_left;
+
+    if (machine->time_left <= 0) { 
+	do_confirm_fork(machine, handle, plugin);
+	return;
+    };
+
+    MDB(("suspected = %d, this: %d, verificator %d. Times: verification: %d, overlap %d, "
+	 "still needed: %d (ms)\n", suspected, key,
+	 machine->verificator,
+	 verification_interval,  overlap_tolerance, machine->time_left));
+
+    if (release_p(event) && suspected_p(key)){ // fixme: is release_p(event) useless?
+	MDB(("fork-key released on time: %dms is a tolerated error (< %d)\n",
+	     (int)(simulated_time -  machine->verificator_time), overlap_tolerance));
+
+	machine->time_left = 0; // i've used it for calculations ... so
+	do_confirm_non_fork(machine, handle, plugin);
+	return;
+
+    } else if (release_p(event) && (machine->verificator == key)){
+	/* limit of tolerance of the error */
+
+         
+	// if (time_difference_more(machine->verificator_time, time, overlap_tolerance)){
+	machine->verificator = 0; // fixme: no state change??
+	// we _should_ take the next possible verificator ?
+
+	// false: we have to wait, maybe the key is indeed a modifier. This verifier is not enough, though
+	do_enqueue_event(machine, handle);
+	return;
+    } else {               // fixme: a (repeated) press of the verificator ?
+	// fixme: we pressed another key: but we should tell XKB to repeat it !
+	do_enqueue_event(machine, handle);
+	return;
+    };
+}
+
+
+static void
+apply_event_to_suspect(machineRec *machine, cons *handle, plugin_instance* plugin)
+{
+    InternalEvent* event = handle->car;
+    Time simulated_time = time_of(event);
+    KeyCode key = detail_of(event);
+
+    list_with_tail &queue = machine->internal_queue;
+    KeyCode suspected = detail_of(queue.head->car);
+
+    DeviceIntPtr keybd = plugin->device;
+
+    /* here, we can
+     * o refuse .... if suspected/forkable is released quickly,
+     * o fork (definitively),  ... for _time_
+     * o start verifying, or wait, or confirm (timeout)
+     * todo: i should repeat a bi-depressed forkable.
+     * */
+    assert(queue.head);
+      
+
+    // fixme: this should not happen, b/c otherwise the timer would _have_ been run
+    int verification_interval = verification_interval_of(machine->config, suspected, 0);
+    machine->time_left = verification_interval - (simulated_time - machine->suspect_time);
+    // time_of(event)
+
+    MDB(("suspect: elapsed: %dms   -> needed %dms (left: %d)\n",
+	 (int) (simulated_time - machine->suspect_time), verification_interval, machine->time_left)); 
+
+
+    /* Time is enough: */
+    if (machine->time_left <= 0) {
+	/* time_difference_more(machine->suspect_time, time_of(event), verification_interval)) */
+	// we fork.
+	MDB(("time: VERIFIED! verification_interval = %dms, elapsed so far =%dms  ->",
+	     verification_interval,  (int)(simulated_time - machine->suspect_time)));
+	do_confirm_fork(machine, handle, plugin);
+	return;
+    };
+      
+
+    /* So, we now have a second key, since the duration of 1 key was not enough. */
+    if (release_p(event))
+	{
+	    MDB(("suspect/release: suspected = %d, time diff: %d\n", suspected,
+		 (int)(simulated_time  -  machine->suspect_time)));
+	    if (suspected_p(key)){
+		machine->time_left = 0; // i've used it for calculations ... so
+		do_confirm_non_fork(machine, handle, plugin);
+		return;
+		/* fixme:  here we confirm, that it was not a user error.....
+		   bad synchro. i.e. the suspected key was just released  */
+	    } else {
+		/* something released, but not verificating, b/c we are in `suspect', not `confirm'  */
+		do_enqueue_event(machine, handle); // the `key'
+		return;
+	    };
+	}
+    else 
+	{
+	    if (!press_p (event))
+		{
+		    DB(("!!! should be pressKey, but is .. %s on %s", 
+			event_names[event->any.type - 2 ],
+			keybd->name));
+		    do_enqueue_event(machine,handle);
+		    return;
+		}
+
+	    if (suspected_p(key)) {
+		/* fixme:   How could this happen?  auto-repeat on the lower level? */
+		/* ignore;       repetition */
+		MDB(("---------- testing fork_repeatable ---------\n"));
+		if (machine->config->fork_repeatable[key]) {
+		    MDB(("The suspected key is configured to repeat, so ...\n")); // fixme !!!
+		    // `NO_FORK'
+		    // fixme:
+		    machine->forkActive[suspected] = suspected; // ????
+		    machine->time_left = 0; // i've used it for calculations ... so
+		    do_confirm_non_fork(machine, handle, plugin);
+		    return;
+		} else{
+               
+		    // fixme: this code is repeating, but we still don't know what to do.
+		    // ..... `discard' the event???
+		    // fixme: but we should recalc the time_left !!
+
+		    return;
+		    // goto confirm_fork;
+		}
+            
+	    } else {
+		/* another release */
+		machine->verificator_time = time_of(event);
+		machine->verificator = key; /* if already we have one -> we are not in this state!
+					       if the verificator becomes a modifier ?? fixme:*/
+		change_state(machine,verify);
+		int overlap = overlap_tolerance_of(machine->config, suspected, machine->verificator);
+#if 0            
+		time = min (machine->time_left, overlap);
+#else
+		// fixme: time_left can change now:
+		machine->time_left = verification_interval_of(machine->config, suspected, machine->verificator)
+		    -  (simulated_time - machine->suspect_time);
+            
+		if (machine->time_left > overlap){
+		    machine->time_left = overlap; // we start now. so _entire_ overlap-tolerance 
+		}
+#endif            
+		do_enqueue_event(machine, handle);
+		return;
+	    };
+	}
+    return;
+}
+
+static void
+apply_event_to_normal(machineRec *machine, cons *handle, plugin_instance* plugin)
+{
+    DeviceIntPtr keybd = plugin->device;
+    XkbSrvInfoPtr xkbi= keybd->key->xkbInfo;
+
+    InternalEvent* event = handle->car;
+    KeyCode key = detail_of(event);
+    Time simulated_time = time_of(event);
+
+    fork_configuration* config = machine->config;    // todo: reference, not pointer.
+
+    /* "closure":  When we press a key the second time in a row, we might avoid forking:
+     * So, this is for the detector:
+     *
+     * This means i cannot do this trick w/ 2 keys, only 1 is the last/considered! */
+    /* fixme: Should this be canceled when we play-by-time? or by force ? */
+    static KeyCode last_released = 0;
+    static int last_released_time = 0; // fixme: does it work w/ _by_force _by_time ?
+
+
+    // assert (queue->head == queue->tail); /* fixme:  */
+    // queue->head = queue->tail = 0;  /* fixme: why ?? */
+
+      
+    // i want to suppress some, and go for repetition.
+    /*  class of `supression':    keys which have a repeating function: movement !!!
+     *  8 classes:  a (^..^) v (..^.) ... v (). form.
+     *  could be 256 ! classes.
+     *  */
+
+    XkbDescPtr xkb = xkbi->desc;
+
+    // if (this key might start a fork)
+    if (press_p(event) && (forkable_p(config, key))
+	// fixme:  the clear interval should just hint, not preclude!
+	&& !time_difference_less(
+	    time_of_previous_event(machine, handle),
+	    time_of(event),
+	    config->clear_interval)
+	&& !(xkb->ctrls->enabled_ctrls & XkbMouseKeysMask)) /* fixme: is it w/ 1-event precision? */
+	{   // does it have a mouse-related action?
+	    /* i want to activate repetition: by depressing the key: */
+#if DEBUG
+	    if ( !forked_to(machine, key) && (last_released == key ))
+		MDB (("can we invoke autorepeat? %d  upper bound %d ms\n",
+		      (int)(simulated_time - last_released_time), config->repeat_max));
+#endif         
+	    /* press_p  & forked .... that's already skipped by the `quick_ignore'
+	       hm, not really. if it is `self_forked' !!! */
+	    if (!forked_to(machine, key) &&
+		((last_released != key ) ||
+		 (int)(simulated_time - last_released_time) > config->repeat_max)
+		//time_difference_more(last_released_time,simulated_time, config->repeat_max))
+		)
+		{
+		    // _supressed         fixme: repeated events ?
+
+		    /* fixme: unless the state is incompatible !!! */
+		    change_state(machine, suspect);
+		    machine->suspect_time = time_of(event);
+		    machine->time_left = verification_interval_of(machine->config, key, 0);
+		    //  bug: suspected 
+		    do_enqueue_event(machine, handle);
+		    return;
+		} else {
+		// self-forked or  not yet forked, but re-pressed very quickly.
+		//      -> fixme: we should mark it s self-forked
+		MDB(("%s\n", forked_to(machine, key)?"self-forked":"re-pressed very quickly"));
+
+		machine->forkActive[key] = key; // fixme: why??
+		// should be:
+		// goto confirm_non_fork;  note: that is not for 'normal' state!
+		// but we 
+		emit_event(handle); /* time_left = 0! */
+		return;
+	    };
+	}
+    else if (release_p (event) && (forked_to(machine, key)))
+	{
+	    MDB(("releasing forked key\n"));
+	    // fixme:  we should see if the fork was `used'.
+	    if (config->consider_forks_for_repeat){
+		// C-f   f long becomes fork. now we wanted to repeat it....
+		last_released = detail_of(event);
+		last_released_time = time_of(event);
+	    }
+	    /* fixme:
+	       else {
+	       last_released = 0;
+	       last_released_time = 0;
+	       }
+	    */
+         
+	    /* we finally release a (self-)forked key. Rewrite back the keycode.
+	     *
+	     * fixme: do i do this in other machine states?
+	     */
+	    event->device_event.detail.key = machine->forkActive[key];
+
+	    //  this is the state (of the keyboard, not the machine).... better to say of the machine!!!
+	    machine->forkActive[key] = 0;
+	    emit_event(handle);
+	}
+    else
+	{
+	    if (release_p (event))
+		{ // fixme: redundant?
+		    last_released = detail_of(event);
+		    last_released_time = time_of(event);
+		}
+#if DEBUG
+	    if (time_difference_less(
+		    time_of_previous_event(machine, handle),
+		    time_of(event), config->clear_interval))
+		{
+		    DB(("%d < %d = clear interval\n",
+			(int)(time_of(event) -
+			      time_of_previous_event(machine, handle)),
+			config->clear_interval));
+		};
+#endif // DEBUG
+
+
+	    // un-forkable event:  pass along
+	    emit_event(handle);
+	}
+    return;
+}
+
+/* apply EVENT to (STATE, internal-QUEUE, TIME).
+ * This can append to the OUTPUT-queue
  * sets: `time_left'
  *
  * input:
  *   internal-queue  ^      input-queue
  *                   handle
  * output:
- *   either the handle  is pushed on internal_queue, or to the ouput-queue
+ *   either the handle  is pushed on internal_queue, or to the output-queue
  *   the head of internal_queue may be pushed to the output-queue as well.
  *
  *see:  emit_event
@@ -588,408 +987,80 @@ step_fork_automaton_by_time(machineRec *machine, plugin_instance* plugin, Time c
  */
 static void
 step_fork_automaton_by_key(machineRec *machine, cons *handle, plugin_instance* plugin)
-   
 {
-   /* "closure":  When we press a key the second time in a row, we might avoid forking:
-    * So, this is for the detector:
-    *
-    * This means i cannot do this trick w/ 2 keys, only 1 is the last/considered! */
-   /* fixme: Should this be canceled when we play-by-time? or by force ? */
-   static KeyCode last_released = 0;
-   static int last_released_time = 0; // fixme: does it work w/ _by_force _by_time ?
+   assert (handle);
 
    DeviceIntPtr keybd = plugin->device;
-   
-   assert (handle);
-   
+   XkbSrvInfoPtr xkbi= keybd->key->xkbInfo;
+
    InternalEvent* event = handle->car;
-   Time current_time = time_of(event);
+   KeyCode key = detail_of(event);
 
    /* please, 1st change the state, then enqueue, and then emit_event.
     * fixme: should be a function then  !!!*/
 
-   // fixme:  reference, not pointer.
-   fork_configuration_rec* config = machine->config;
    list_with_tail &queue = machine->internal_queue;
 
    // default values:
    machine->time_left = 0;
 
-   XkbSrvInfoPtr xkbi= keybd->key->xkbInfo;
-   KeyCode key = detail_of(event);
-
-   /* this is used in various `case's, but in _common_ in the goto: `confirm_fork' */
-   KeyCode suspected; 
-
-   
-   /* `quick_ignore': i want to ignore _quickly_  the repeated forked modifiers.
+   /* this is used in various cases, but in _common_ in the goto: `confirm_fork' */
+#if DDX_REPEATS_KEYS || 1
+   /* `quick_ignore': I want to ignore _quickly_  the repeated forked modifiers.
       Normal modifier are ignored before put in the X input pipe/queue
       This is only if the lower level (keyboard driver) passes through the  auto-repeat events. */
-
-   if ((forked(machine, key)) && press_p(event) && (key != machine->forkActive[key]))
+   if ((forked_to(machine, key)) && press_p(event) && (key != machine->forkActive[key]))
        { // not `self_forked'
-	   /* MDB */
 	   DB(("%s: the key is forked, ignoring\n", __FUNCTION__));
 	   /* fixme: why is this safe? */
 	   mxfree(handle->car, handle->car->any.length);
 	   mxfree(handle, sizeof(cons));
 	   return; 
        }
-
-   assert (release_p(event) || machine->forkActive[key] == 0);
+#endif
+   // fixme:
+   // assert (release_p(event) || (key < MAX_KEYCODE && machine->forkActive[key] == 0));
 
 #if DEBUG
    /* describe all the (state x key) -> ? */
    KeySym *sym = XkbKeySymsPtr(xkbi->desc,key);
-      
    if ((!sym) || (! isalpha(* (unsigned char*) sym)))
       sym = (KeySym*) " ";
    MDB(("%s%s%s state: %s, queue: %d, event: %d %s%c %s %s\n",
         info_color,__FUNCTION__,color_reset,
         describe_machine_state(machine),
         queue_lenght(queue),
-        key, key_color, (char)*sym, color_reset, (press_p(event)?"down":"up")));
+        key, key_color, (char)*sym, color_reset, event_type_brief(event)));
 #endif
-
-
 
    switch (machine->state) {
-
    case normal:
-      /* this is the only state, where the key is the first in the internal_queue. */
-   {
-      // assert (queue->head == queue->tail); /* fixme:  */
-      // queue->head = queue->tail = 0;  /* fixme: why ?? */
-
-      
-      // i want to suppress some, and go for repetition.
-      /*  class of `supression':    keys which have a repeating function: movement !!!
-       *  8 classes:  a (^..^) v (..^.) ... v (). form.
-       *  could be 256 ! classes.
-       *  */
-
-      /* fixme!! (Xkb_compatible_fork_p(config, c,keyc->down)) */
-      /* (config->forkCancel[c] &&  (down_p(config->forkCancel[c]))) */
-      /* Xkb_compatible_fork_p(XkbSrvInfoPtr xkbi, KeyCode key, unsigned char* down) */
-      XkbDescPtr xkb = xkbi->desc;
-
-      
-      if (press_p (event)
-          && (forkable_p(config, key))
-          // fixme:  the clear interval should just hint, not preclude!
-
-          && ! time_difference_less (
-#if KEEP_PREVIOUS
-             time_of(handle->previous->car),
-#else
-             machine->time_of_last_output, 
-#endif 
-                                     time_of(event),
-                                     config->clear_interval)
-   /* fixme:  0 default -> > is wrong */
-
-          && !(xkb->ctrls->enabled_ctrls & XkbMouseKeysMask)) /* fixme: is it w/ 1-event precision? */
-
-         { // does it have a mouse-related action?
-            /* i want to activate repetition: by depressing the key: */
-#if DEBUG
-            if ( !forked(machine, key) && (last_released == key ))
-               MDB (("can we invoke autorepeat? %d  upper bound %d ms\n",
-		     (int)current_time - last_released_time, config->repeat_max));
-#endif         
-            /* press_p  & forked .... that's already skipped by the `quick_ignore'  hm, not really. if it is `self_forked' !!! */
-            if ( !forked(machine, key) &&
-                 ((last_released != key ) || time_difference_more(last_released_time, current_time, config->repeat_max)))
-               {
-                  // _supressed         fixme: repeated events ?
-
-                  /* fixme: unless the state is incompatible !!! */
-                  change_state(machine, suspect);
-                  machine->suspect_time = time_of(event);
-
-                  machine->time_left = verification_interval_of(machine->config, key, 0);
-                  //  bug: suspected 
-                  goto enqueue_event;
-            
-                  // do we continue??
-               } else {
-                  // self-forked or  not yet forked, but re-pressed very quickly. -> fixme: we should mark it s self-forked
-                  MDB(("%s\n", forked(machine, key)?"self-forked":"re-pressed very quickly"));
-
-                  machine->forkActive[key] = key; // fixme: why??
-                  // should be:
-                  // goto confirm_non_fork;  note: that is not for 'normal' state!
-                  // but we 
-                  emit_event(handle); /* time_left = 0! */
-                  return;
-               };
-         }
-      else if (release_p (event) && (forked(machine, key)))
-         {
-            MDB(("releasing forked key\n"));
-            // fixme:  we should see if the fork was `used'.
-            if (config->consider_forks_for_repeat){
-               // C-f   f long becomes fork. now we wanted to repeat it....
-               last_released = detail_of(event);
-               last_released_time = time_of(event);
-            }
-            /* fixme:
-               else {
-               last_released = 0;
-               last_released_time = 0;
-               }
-            */
-
-         
-            /* we finally release a (self-)forked key. Rewrite back the keycode.
-             *
-             * fixme: do i do this in other machine states?
-             */
-            event->device_event.detail.key = machine->forkActive[key];
-
-            //  this is the state (of the keyboard, not the machine).... better to say of the machine!!!
-            machine->forkActive[key] = 0;
-            emit_event(handle);
-         }
-      else
-         {
-            if (release_p (event))
-               { // fixme: redundant?
-                  last_released = detail_of(event);
-                  last_released_time = time_of(event);
-               }
-#if DEBUG
-            if (time_difference_less(
-#if KEEP_PREVIOUS
-                   time_of(handle->previous->car),
-#else
-                   machine->time_of_last_output, 
-#endif 
-                   time_of(event), config->clear_interval))
-               {
-                  DB(("%d < %d = clear interval\n",
-                      (int)(time_of(event) -
-#if KEEP_PREVIOUS
-                   time_of(handle->previous->car)
-#else
-                   machine->time_of_last_output
-#endif
-                         ),
-                      config->clear_interval));
-               };
-#endif 
-            // un-forkable event:  pass along
-            emit_event(handle);    /* ok */
-            /* return */
-         }
-      break;
-   }
-
-   /* in other states the key is not the first one, and will not be output! */
-   
+     /* this is the only state, where the key is the first in the internal_queue. */
+       apply_event_to_normal(machine, handle, plugin);
+       return;
+     /* in other states the key is not the first one, and will not be output! */
    case suspect:
-   {     // 2.
-      /* here, we can
-       * o refuse .... if suspected/forkable is released quickly,
-       * o fork (definitively),  ... for _time_
-       * o start verifying, or wait, or confirm (timeout)
-       * todo: i should repeat a bi-depressed forkable.
-       * */
-      assert(queue.head);
-      suspected = detail_of(queue.head->car);
-      
-#define suspected_p(k)     (k == suspected)
-
-      // fixme: this should not happen, b/c otherwise the timer would _have_ been run
-      int verification_interval = verification_interval_of(machine->config, suspected, 0);
-      machine->time_left = verification_interval  -  (current_time - machine->suspect_time); // time_of(event)
-      MDB(("suspect: elapsed: %dms   -> needed %dms (left: %d)\n",
-	   (int) (current_time - machine->suspect_time), verification_interval, machine->time_left)); 
-
-
-      /* Time is enough: */
-      if (machine->time_left <= 0){ /* time_difference_more(machine->suspect_time, time_of(event), verification_interval)) */
-         // we fork.
-         MDB(("time: VERIFIED! verification_interval = %dms, elapsed so far =%dms  ->",
-	      verification_interval,  (int)(current_time - machine->suspect_time)));
-         goto confirm_fork;
-      };
-      
-
-      /* So, we now have a second key, since the duration of 1 key was not enough. */
-      if (release_p(event))
-         {
-            MDB(("suspect/release: suspected = %d, time diff: %d\n", suspected,
-		 (int)(current_time  -  machine->suspect_time)));
-            if (suspected_p(key)){
-               machine->time_left = 0; // i've used it for calculations ... so
-               goto confirm_non_fork; /* fixme:  here we confirm, that it was not a user error..... bad synchro. i.e. the suspected key was just released  */
-            } else {
-               /* something released, but not verificating, b/c we are in `suspect', not `confirm'  */
-               goto enqueue_release_event; // the `key'
-            };
-         }
-      else /* if (press_p (event))*/
-         {
-            assert(press_p (event));
-            /*  press */         
-            if (suspected_p(key)) {
-               /* fixme:   How could this happen?  auto-repeat on the lower level? */
-               /* ignore;      /* repetition */
-               MDB(("---------- testing fork_repeatable ---------\n"));
-               if (machine->config->fork_repeatable[key]) {
-                  MDB(("The suspected key is configured to repeat, so ...\n")); // fixme !!!
-                  // `NO_FORK'
-                  // fixme:
-                  machine->forkActive[suspected] = suspected; // ????
-                  machine->time_left = 0; // i've used it for calculations ... so
-                  goto confirm_non_fork;
-                  break;
-               } else{
-               
-                  // fixme: this code is repeating, but we still don't know what to do. ..... `discard' the event???
-                  // fixme: but we should recalc the time_left !!
-
-                  return;
-                  // goto confirm_fork;
-               }
-            
-            } else {
-               /* another release */
-               machine->verificator_time = time_of(event);
-               machine->verificator = key; /* if already we have one -> we are not in this state !!    if the verificator becomes a modifier ?? fixme:*/
-
-               change_state(machine,verify);     /* fixme:  */
-
-               int overlap = overlap_tolerance_of(machine->config, suspected, machine->verificator);
-#if 0            
-               time = min (machine->time_left, overlap);
-#else
-               // fixme: time_left can change now:
-               machine->time_left = verification_interval_of(machine->config, suspected, machine->verificator)
-                  -  (current_time - machine->suspect_time);
-            
-               if (machine->time_left > overlap){
-                  machine->time_left = overlap; // we start now. so _entire_ overlap-tolerance 
-               }
-#endif            
-               goto enqueue_event;
-            };
-         }
-      break;                    // followed by return; 
-   }
+     {     // 2.
+	 apply_event_to_suspect(machine, handle, plugin);
+	 return;
+     }
    case verify:
-   {  /* So, already 2 keys have been pressed, and still no decision. Now we have the 3rd key. */
-      /* we wait only for time, and for the release of the key */
-      
-      /* we pressed the forkable key, and another one (which could possibly use the modifier). Now, either the forkable key was intended
-       * to be `released' before the press of the other key (and we have an error due to mis-synchronization), or in fact, the forkable
-       * was actuallly `used' as a modifier. */
-      suspected = detail_of(queue.head->car);
-
-      /* motivation:  we want to press the modifier for short time (simultaneously pressing other keys). But sometimes writing quickly, we
-       * press before we release the previous letter. We handle this, ignoring a short overlay. E.i. we wait for the verification key
-       * to be pressed at least ...ms in parallel. */
-
-      /* if we release quickly either the suspected, or the verifying key, then ....  otherwise ? */
-      /* release timeout !!!  */
-
-      /* fixme: if the suspected key is another modifier? and we press other keys, what happens ? so far, we don't care about the `verificator' */
-
-      /* as before, in the suspect case, we check the 1-key timeout ? But this time, we have the 2 key, and we can have a more specific
-       *  parameter:  Some keys are slow to release, when we press a specific one afterwards. So in this case fork slower!
-       */
-      int verification_interval = verification_interval_of(machine->config, suspected, machine->verificator);
-      
-      machine->time_left = verification_interval - (current_time - machine->suspect_time);
-
-      if (machine->time_left <= 0) { 
-         goto confirm_fork;
-      };
-
-      /* now, check the overlap of the 2 first keys */
-      int overlap_tolerance = overlap_tolerance_of(machine->config, suspected, machine->verificator);
-
-      int another_time_left =  overlap_tolerance -  (current_time - machine->verificator_time);
-      if (another_time_left < machine->time_left)
-         machine->time_left = another_time_left;
-
-      if (machine->time_left <= 0) { 
-         goto confirm_fork;
-      };
-
-      
-      MDB(("suspected = %d, this: %d, verificator %d. Times: verification: %d, overlap %d, still needed: %d (ms)\n", suspected, key,
-           machine->verificator,
-           verification_interval,  overlap_tolerance, machine->time_left));
-
-      if (release_p(event) && suspected_p(key)){ // fixme: is release_p(event) useless?
-         MDB(("fork-key released on time: %dms is a tolerated error (< %d)\n",
-	      (int)(current_time -  machine->verificator_time), overlap_tolerance));
-
-         machine->time_left = 0; // i've used it for calculations ... so
-         goto confirm_non_fork;
-
-      } else if (release_p(event) && (machine->verificator == key)){       /* limit of tolerance of the error */
-
-         
-         // if (time_difference_more(machine->verificator_time, time, overlap_tolerance)){
-         machine->verificator = 0; // fixme: no state change??  we _should_ take the next possible verificator ?
-
-         // false: we have to wait, maybe the key is indeed a modifier. This verifier is not enough, though
-         goto enqueue_release_event;
-      } else {               // fixme: a (repeated) press of the verificator ?
-         // fixme: we pressed another key: but we should tell XKB to repeat it !
-         goto enqueue_release_event; // the `xkbi->`repeatKey'
-         break;
-      };
-      // bad.
-   }
+     {
+	 apply_event_to_verify(machine, handle, plugin);
+	 return;
+     }
    default:
-      DB(("----------unexpected state---------\n"));
+     DB(("----------unexpected state---------\n"));
    }
    //   ErrorF("\n");
-   return;
-
-  enqueue_release_event:
-   // either press, or release of another key.
-   // i have to disable the _last_ press.
-   // fixme  key or xkbi->repeatKey ??
-
-  enqueue_event:
-
-   push_on_queue(queue, handle);
-   MDB(("enqueue_event: time left: %d\n", machine->time_left));         // we don't emit here...
-   return;
-
-  confirm_non_fork:
-
-   assert(machine->time_left == 0);
-   change_state(machine,deactivated);
-   /* produce the 2 events.... */
-   push_on_queue(queue, handle); //  this  will be re-processed!!
-   MDB(("this is not a fork! %d\n", suspected));
-   emit_event(pop_from_queue(queue, 0)); /* fixme: dequeue !!! */    /* no fork !!! fixme: can we dereference ? */
-   return;
-
-
-  confirm_fork:
-   if (machine->time_left < 0)
-      machine->time_left = 0;
-
-   /* fixme: handle is the just-read event. But that is surely not the head of queue (which is confirmed to fork) */
-    
-   activate_fork(machine, queue, plugin, suspected);
-   push_on_queue(queue, handle);
-
-   DB(("confirm:\n"));
    return;
 }
 
 
 static
 void
-dump_event(KeyCode key, KeyCode fork, bool press, Time event_time, XkbDescPtr xkb, XkbSrvInfoPtr xkbi, Time prev_time)
+dump_event(KeyCode key, KeyCode fork, bool press, Time event_time, XkbDescPtr xkb,
+	   XkbSrvInfoPtr xkbi, Time prev_time)
 {
    //   1. 43 
 //         ErrorF("%d: %d\n",i++, key);
@@ -1123,11 +1194,13 @@ try_to_play(plugin_instance* plugin, Time current_time, Bool force)
                
          /* then, reset the machine */
          MDB(("== Resetting the fork machine\n"));
-         machine->state = normal;
+         //machine->state = normal;
+	 change_state(machine,normal);
          machine->verificator = 0;
 
          if (!queue_empty(machine->internal_queue)) {
-            prepend_to(machine->internal_queue, input_queue);
+	     // this resets/empties the internal queue.
+            empty_queue_to(machine->internal_queue, input_queue);
             MDB(("now in input_queue: %d\n", queue_lenght(input_queue)));
          }
          /* fixme: [19 ott 05]   */
@@ -1135,39 +1208,27 @@ try_to_play(plugin_instance* plugin, Time current_time, Bool force)
       };
 
       
-      cons* handle = pop_from_queue(input_queue, 1); // fixme:  this is pop_from_queue light!
-      // assert(handle);
+      cons* handle = pop_from_queue(input_queue, 1);
+
       if (handle) {
          // do we have some other events to push?
          // if (empty(input_queue)) break; /* `FINISH' */
          // MDB(("== replaying from the queue %d events\t", replay_size));
          /* and feed it. */
-
-         //xE = (replay_head++);
-         // replay_size --;
-
          //  increase_modulo_DO(input_queue.head, MAX_EVENTS_IN_QUEUE);
-#if 0 
-         KeyCode key = xE->u.u.detail;
-         XkbSrvInfoPtr xkbi= keybd->key->xkbInfo;
-         KeySym *sym= XkbKeySymsPtr(xkbi->desc,key);
-
-         MDB(("event: %d %c%s %s\n", key, key_color,*sym, color_reset,(xE->u.u.type==KeyPress?"down":"up")));
-#endif
          MDB(("--calling step_fork_automaton_by_key\n"));
          step_fork_automaton_by_key(machine, handle, plugin); /* , time_of(handle->car) */
       } else {
-         // add the final time event:
-         // time_left
-         if (current_time && (machine->state != normal)){
-            step_fork_automaton_by_time (machine, plugin,  current_time);
-            if (machine->time_left)
-               break; /* `FINISH' */
-         } else if (force && (machine->state != normal)){
-            step_fork_automaton_by_force (machine, plugin);
-         } else break; /* `FINISH' */ 
-         // didn't help -> break:
-         // error:  consider the time !!
+	  // at the end ... add the final time event:
+	  if (current_time && (machine->state != normal)){
+	      step_fork_automaton_by_time (machine, plugin,  current_time);
+	      if (machine->time_left)
+		  break; /* `FINISH' */
+	  } else if (force && (machine->state != normal)){
+	      step_fork_automaton_by_force (machine, plugin);
+	  } else break; /* `FINISH' */ 
+	  // didn't help -> break:
+	  // error:  consider the time !!
       }
    }
 }
@@ -1210,7 +1271,9 @@ replay_events(plugin_instance* plugin, Time current_time, Bool force)
    //    XXX are events     .... is free space
 
    if (!queue_empty(machine->internal_queue))
-      prepend_to(machine->internal_queue, machine->input_queue);
+       // prepend and empty. (transfer)
+      empty_queue_to(machine->internal_queue, machine->input_queue);
+   
    machine->state = normal;
 
    try_to_play(plugin, current_time, force);
@@ -1225,7 +1288,8 @@ inline
 int                             // return:  0  nothing  -1  skip it
 filter_config_key(plugin_instance* plugin,const InternalEvent *event)
 {
-   static unsigned char config_mode = 0;   // != 0   while the Pause key is down, i.e. we are configuring keys:
+   static unsigned char config_mode = 0;
+   // != 0   while the Pause key is down, i.e. we are configuring keys:
    static KeyCode key_to_fork = 0;         //  what key we want to configure?
    static Time last_press_time = 0;
    static int latch = 0;
@@ -1236,8 +1300,10 @@ filter_config_key(plugin_instance* plugin,const InternalEvent *event)
       //   Pause a shit   ->
 
 
-      // [21 ott 04]  i admit, that some (non-plain ps/2) keyboard generate the release event at the same time as press
-      // So, to overcome this limitation, i detect this short-lasting `down' & take the `next' event as in `config_mode'
+      // [21 ott 04]  i admit, that some (non-plain ps/2) keyboard generate the release event
+      // at the same time as press
+      // So, to overcome this limitation, i detect this short-lasting `down' & take the `next'
+      // event as in `config_mode'
       
       if ((detail_of(event) == PAUSE_KEYCODE) && release_p(event)){ //  fake ?
          if ( (time_of(event) - last_press_time) < 30) // fixme: configurable!
@@ -1264,7 +1330,6 @@ filter_config_key(plugin_instance* plugin,const InternalEvent *event)
          if (press_p(event))
 	     switch (detail_of(event)) {
             case 110:
-               //  0
             {
                machineRec* machine = plugin_machine(plugin);
                machine->lock = 1;
@@ -1272,7 +1337,6 @@ filter_config_key(plugin_instance* plugin,const InternalEvent *event)
                machine->lock = 0;
                break;
             }
-               
 
             case 19:
             {
@@ -1314,7 +1378,6 @@ filter_config_key(plugin_instance* plugin,const InternalEvent *event)
                   key_to_fork = 0;
                }
             }};
-
 #if 0
          register BYTE   *kptr;
          KeyCode key = detail_of(event);
@@ -1326,7 +1389,6 @@ filter_config_key(plugin_instance* plugin,const InternalEvent *event)
                         *kptr &= ~bit;          // clear
          else *kptr |= bit;
 #endif
-
          return -1;
       }
    }
@@ -1335,11 +1397,6 @@ filter_config_key(plugin_instance* plugin,const InternalEvent *event)
    if ((detail_of(event) == PAUSE_KEYCODE) && press_p(event))
        /* wait for the next and act ? but start w/ printing the last events: */
       {
-         DeviceIntPtr keybd = plugin->device;
-         int             bit;      // why not BYTE ??
-         register BYTE   *kptr;
-         KeyCode key = detail_of(event);
-         
          last_press_time = time_of(event);
          ErrorF("entering config_mode & discarding the event: %lu!\n", last_press_time);
          config_mode = 1;
@@ -1367,36 +1424,10 @@ set_wakeup_time(plugin_instance* plugin, plugin_time now)
 	(int)plugin->wakeup_time, (int)plugin->next->wakeup_time));
 }
 
-const char* event_names[] = {
-    "KeyPress",
-    "KeyRelease",
-    "ButtonPress",
-    "ButtonRelease",
-    "Motion",
-    "Enter",
-    "Leave",
-    // 9
-    "FocusIn",
-    "FocusOut",
-    "ProximityIn",
-    "ProximityOut",
-    // 13
-    "DeviceChanged",
-    "Hierarchy",
-    "DGAEvent",
-    // 16
-    "RawKeyPress",
-    "RawKeyRelease",
-    "RawButtonPress",
-    "RawButtonRelease",
-    "RawMotion",
-    "XQuartz"
-};
 
 static cons*   
-create_handle_for_event (InternalEvent *event, bool owner)
+create_handle_for_event(InternalEvent *event, bool owner)
 {
-
   // possibly make a copy of the event!
    InternalEvent* qe;
    if (owner)
@@ -1410,7 +1441,6 @@ create_handle_for_event (InternalEvent *event, bool owner)
             return NULL;
          }
    }
-
    /* fixme: where do i xfree()  the handle?? */
    // fixme: i should have a pool
    cons* handle = (cons*)malloc(sizeof(cons));
@@ -1423,6 +1453,9 @@ create_handle_for_event (InternalEvent *event, bool owner)
    };
 
    memcpy(qe, event, event->any.length);
+
+   DB(("+++ accepted new event: %s\n", 
+       event_names[event->any.type - 2 ]));
 
    handle->car = qe;
    handle->cdr = NULL;
@@ -1439,8 +1472,9 @@ ProcessEvent(plugin_instance* plugin, InternalEvent *event, Bool owner)
 {
    DeviceIntPtr keybd = plugin->device;
    plugin_time now = time_of(event);
-   
-   if (!press_p(event) && !release_p(event))
+
+#if 0
+   if (!(press_p(event) || release_p(event)))
        {
 	   plugin_instance* next = plugin->next;
 #if DEBUG
@@ -1456,7 +1490,9 @@ ProcessEvent(plugin_instance* plugin, InternalEvent *event, Bool owner)
 	   // assert (!plugin_frozen(next));
 	   // memory_balance -= event->any.length;
 	   PluginClass(next)->ProcessEvent(next, event, owner);
+	   return;
        };
+#endif
 
    if (filter_config_key(plugin, event) < 0)
       {
@@ -1474,7 +1510,7 @@ ProcessEvent(plugin_instance* plugin, InternalEvent *event, Bool owner)
    machine->lock = 1;           // fixme: mouse must not interrupt us.
 #endif   
 
-   cons* handle = create_handle_for_event (event, owner);
+   cons* handle = create_handle_for_event(event, owner);
    if (!handle)			// memory problems
      return;
    
@@ -1492,30 +1528,14 @@ ProcessEvent(plugin_instance* plugin, InternalEvent *event, Bool owner)
 #if DEBUG
    if (((machineRec*) plugin_machine(plugin))->config->debug) {
       DB(("%s>>> ", key_io_color));
-      describe_key(keybd, qe);
+      DB(("%s", describe_key(keybd, handle->car)));
       DB(("%s\n", color_reset));
    }
 #endif
 
-
-#if 1
    push_on_queue(machine->input_queue, handle);
-   // fixme:  we should enqueue and then replay_events !!
-   // wrong: replay_events(keybd, machine, 0, FALSE);
    try_to_play(plugin, 0, FALSE);
-#else
-   // bug: 
-   step_fork_automaton_by_key(machine, handle, plugin);
-   // fixme: this indicates that the state is final?  maybe not.... non-forkable 
 
-   if (final_p(machine->state)) {
-      /* if we finally decide.... restart! and feed it all the queue. */
-      replay_events (plugin,0, FALSE);
-   } else {
-      // assert( ! final_p(machine->state));
-      //if (final_p(machine->state)){
-   };
-#endif
 
    // fixme: we should take NOW better?
    set_wakeup_time(plugin, now);
@@ -1527,24 +1547,25 @@ ProcessEvent(plugin_instance* plugin, InternalEvent *event, Bool owner)
 
 
 static void
-step_in_time_locked(plugin_instance* plugin, plugin_time now) // fixme: unsigned ?
+step_in_time_locked(plugin_instance* plugin, plugin_time now)
 {
    machineRec* machine = plugin_machine(plugin);
+   MDB(("%s:\n", __FUNCTION__));
    /* is this necessary?   I think not: if the next plugin was frozen, and now it's not, then
     * it must have warned us that it thawed */
    try_to_output(plugin);
    /* push the time ! */
    try_to_play(plugin, now, FALSE); /* dont_force */
-   
-   
    /* !plugin_frozen(plugin->next)   ---> queue_empty(machine->input_queue) */
    
    /* i should take the minimum of time and the time of the 1st event in the (output) internal queue */
    if (queue_empty(machine->internal_queue) && queue_empty(machine->input_queue)
        && !plugin_frozen(plugin->next))
       {
-         /* might this be invoked several times?  */
-         PluginClass(plugin->next)->ProcessTime(plugin->next, now);
+	machine->lock = 0;
+	/* might this be invoked several times?  */
+	PluginClass(plugin->next)->ProcessTime(plugin->next, now);
+	machine->lock = 1;
       }
    // todo: we could push the time before the first event in internal queue!
    set_wakeup_time(plugin, now);
@@ -1557,14 +1578,14 @@ step_in_time(plugin_instance* plugin, plugin_time now)
    machineRec* machine = plugin_machine(plugin);
    MDB(("%s:\n", __FUNCTION__));
    machine->lock = 1;
-   step_in_time_locked(plugin,  now);
+   step_in_time_locked(plugin, now);
    machine->lock = 0;
 };
 
 
 /* called from AllowEvents, after all events from the queue have been pushed: . */
 static void
-thaw_notify(plugin_instance* plugin, plugin_time now)
+fork_thaw_notify(plugin_instance* plugin, plugin_time now)
 {
    machineRec* machine = plugin_machine(plugin);
    MDB(("%s @ time %u\n", __FUNCTION__, (int)now));
@@ -1575,11 +1596,10 @@ thaw_notify(plugin_instance* plugin, plugin_time now)
 
    if (!plugin_frozen(plugin->next) && PluginClass(plugin->prev)->NotifyThaw)
       {
-         MDB(("%s -- sending thaw Notify upwards!\n", __FUNCTION__));
          /* thaw the previous! */
          set_wakeup_time(plugin, now);
          machine->lock = 0;
-
+         MDB(("%s -- sending thaw Notify upwards!\n", __FUNCTION__));
          /* fixme:  Tail-recursion! */
          PluginClass(plugin->prev)->NotifyThaw(plugin->prev, now);
 	 /* i could move now to the time of our event. */
@@ -1597,7 +1617,11 @@ mouse_call_back (CallbackListPtr *, plugin_instance* plugin,
 		 DeviceEventInfoRec* dei)
 {
    InternalEvent *event = dei->event;
-
+#if USE_LOCKING
+   machineRec* machine = plugin_machine(plugin);
+   assert(machine->lock == 0);
+   machine->lock = 1;
+#endif
    if (event->any.type == ET_Motion)
       {
          if (plugin_machine(plugin) -> lock)
@@ -1605,6 +1629,9 @@ mouse_call_back (CallbackListPtr *, plugin_instance* plugin,
          /* else */
          step_fork_automaton_by_force(plugin_machine(plugin), plugin);
       }
+#if USE_LOCKING
+   machine->lock = 0;
+#endif
 }
 
 
@@ -1635,14 +1662,14 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
    // i create 2 config sets.  1 w/o forking.
    // They are numbered:  0  is the no-op.
    // 
-   fork_configuration_rec* config_no_fork = machine_new_config(); // configuration number 0
+   fork_configuration* config_no_fork = machine_new_config(); // configuration number 0
    config_no_fork->debug = 0;   // should be settable somehow.
    if (!config_no_fork)
       {
          return NULL;              // BadAlloc
       }
 
-   fork_configuration_rec* config = machine_new_config();
+   fork_configuration* config = machine_new_config();
    if (!config)
       {
          free (config_no_fork); 
@@ -1706,13 +1733,10 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
    forking_machine->time_of_last_output = 0;
 #endif
 
-
    plugin->data = (void*) forking_machine;
    ErrorF("%s: returning %d\n", __FUNCTION__, Success);
 
-#if 0
-   if (! DeviceEventCallback)
-           CreateCallbackList(&DeviceEventCallback, NULL);
+#if 1
    AddCallback(&DeviceEventCallback, (CallbackProcPtr) mouse_call_back, (void*) plugin);
 #endif
 
@@ -1996,7 +2020,7 @@ fork_plug(
          .instantiate = make_machine,
          .ProcessEvent = ProcessEvent,
          .ProcessTime =  step_in_time,
-         .NotifyThaw = thaw_notify,
+         .NotifyThaw = fork_thaw_notify,
          // module ?
          .config = machine_configure,
          .getconfig = machine_configure_get,
@@ -2010,7 +2034,7 @@ fork_plug(
          make_machine,
          ProcessEvent,
          step_in_time,
-         thaw_notify,
+         fork_thaw_notify,
          // module ?
          machine_configure,
          machine_configure_get,
@@ -2033,14 +2057,6 @@ fork_plug(
 
    return &plugin_class;
 }
-
-static void
-fork_unplug(pointer module)
-{
-   /* check that no machines used? */
-   DB(("%s\n", __FUNCTION__));
-}
-      
 
 extern "C" {
 

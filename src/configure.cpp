@@ -18,10 +18,10 @@
 //    |    or      |
 //  return a _pointer_ to the pointer  on a searched-for item.
 
-static fork_configuration_rec**
+static fork_configuration**
 find_before_n(machineRec* machine, int n)
 {
-   fork_configuration_rec** config_p = &(machine->config);
+   fork_configuration** config_p = &(machine->config);
    
    while (((*config_p)->next) && ((*config_p)->id != n))
       {
@@ -38,7 +38,7 @@ machine_switch_config(plugin_instance* plugin, machineRec* machine,int id)
 
    ErrorF("%s %d\n", __FUNCTION__, id);
 
-   fork_configuration_rec** config_p = find_before_n(machine, id);
+   fork_configuration** config_p = find_before_n(machine, id);
    /* (device_machine(dev))->config; */
 
    ErrorF("%s found\n", __FUNCTION__);
@@ -58,7 +58,7 @@ machine_switch_config(plugin_instance* plugin, machineRec* machine,int id)
 
          DB(("switching configs %d -> %d\n", machine->config->id, id));
 
-         fork_configuration_rec* new_current = *config_p;
+         fork_configuration* new_current = *config_p;
 
 
          //fixme:  this sequence works at the beginning too!!!
@@ -84,14 +84,14 @@ static int config_counter = 0;
 
 
 // nothing active (forkable) in this configuration
-fork_configuration_rec*
+fork_configuration*
 machine_new_config(void) 
 {
-   fork_configuration_rec* config;      
+   fork_configuration* config;      
    
    /* `configuration' */
    ErrorF("resetting the configuration to defaults\n");
-   config = MALLOC(fork_configuration_rec);
+   config = MALLOC(fork_configuration);
 
    
    if (! config){
@@ -284,7 +284,7 @@ dump_last_events_to_client(plugin_instance* plugin, ClientPtr client, int n)
             index += machine->max_last;
          
             
-         DB(("%d/(%d): %d\t%d (%ul)\n", i, index, machine->last_events[index].key,
+         DB(("%d/(%d): %d\t%d (%lu)\n", i, index, machine->last_events[index].key,
              machine->last_events[index].forked,
              machine->last_events[index].time));
 

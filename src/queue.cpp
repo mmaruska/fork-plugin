@@ -124,7 +124,7 @@ append_to(list_with_tail &from, list_with_tail &to)
 //      from      to          to = result    from -> ()  
 //     xxxxxxx   yyyyy   ->   xxxxyyyy
 void
-prepend_to(list_with_tail &from, list_with_tail &to)
+empty_queue_to(list_with_tail &from, list_with_tail &to)
 {
     // if from is NULL, this fails!
     assert (from.tail);

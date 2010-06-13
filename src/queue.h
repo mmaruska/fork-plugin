@@ -48,7 +48,7 @@ extern Bool queue_empty(const list_with_tail &queue) ;
 extern cons* pop_from_queue(list_with_tail &queue, int empty_ok);
 extern void  push_on_queue(list_with_tail &queue, cons *handle);
 extern cons* queue_skip(list_with_tail &queue, int n);
-extern void  prepend_to(list_with_tail &from, list_with_tail &to);
+extern void  empty_queue_to(list_with_tail &from, list_with_tail &to);
 
 extern void init_queue(list_with_tail &queue, const char* name);
 
