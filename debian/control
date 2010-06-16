@@ -1,0 +1,12 @@
+Source: xkb-plugin
+Section: unknown
+Priority: extra
+Maintainer: Michal Maruska <mmaruska@gmail.com>
+Build-Depends: cdbs, debhelper (>= 5), xserver-xorg-dev
+Standards-Version: 3.7.2
+
+Package: xkb-plugin
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, xserver-xorg-core
+Description:
+ 
