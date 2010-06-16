@@ -134,11 +134,11 @@ typedef struct machine
 
 
 extern fork_configuration* machine_new_config(void);
-extern void machine_switch_config(plugin_instance* plugin, machineRec* machine,int id);
+extern void machine_switch_config(PluginInstance* plugin, machineRec* machine,int id);
 extern int machine_set_last_events_count(machineRec* machine, int new_max);
-extern void replay_events(plugin_instance* plugin, Time current_time, Bool force); 
+extern void replay_events(PluginInstance* plugin, Time current_time, Bool force); 
 
-extern int dump_last_events_to_client(plugin_instance* plugin, ClientPtr client, int n);
+extern int dump_last_events_to_client(PluginInstance* plugin, ClientPtr client, int n);
 
 
 enum {
@@ -178,7 +178,7 @@ void* mmalloc(int size)
    void* p = xalloc(size);
    if (p) {
       memory_balance += size;
-      if (memory_balance > sizeof(machineRec) + sizeof(plugin_instance) + 2000)
+      if (memory_balance > sizeof(machineRec) + sizeof(PluginInstance) + 2000)
 	/* machine->max_last * sizeof() */
 	ErrorF("%s: memory_balance = %d\n", __FUNCTION__, memory_balance);
    }

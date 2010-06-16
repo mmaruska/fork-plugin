@@ -33,7 +33,7 @@ find_before_n(machineRec* machine, int n)
 
 
 void
-machine_switch_config(plugin_instance* plugin, machineRec* machine,int id)
+machine_switch_config(PluginInstance* plugin, machineRec* machine,int id)
 {
 
    ErrorF("%s %d\n", __FUNCTION__, id);
@@ -234,7 +234,7 @@ machine_set_last_events_count(machineRec* machine, int new_max) // fixme:  lock 
  * --------------------
  */
 int
-dump_last_events_to_client(plugin_instance* plugin, ClientPtr client, int n)
+dump_last_events_to_client(PluginInstance* plugin, ClientPtr client, int n)
 {
 
    machineRec* machine = plugin_machine(plugin);

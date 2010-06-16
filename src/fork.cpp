@@ -238,9 +238,9 @@ describe_machine_state(machineRec* machine)
 
 /* push the event to the next plugin. ownership is transfered! */
 inline void
-hand_over_event_to_next_plugin(InternalEvent *event, plugin_instance* plugin)
+hand_over_event_to_next_plugin(InternalEvent *event, PluginInstance* plugin)
 {
-   plugin_instance* next = plugin->next;
+   PluginInstance* next = plugin->next;
 
 #if DEBUG
    if (((machineRec*) plugin_machine(plugin))->config->debug)
@@ -261,7 +261,7 @@ hand_over_event_to_next_plugin(InternalEvent *event, plugin_instance* plugin)
 /* The machine is locked here:
  * push as many as possible from the OUTPUT queue to the next layer */
 static void
-try_to_output(plugin_instance* plugin)
+try_to_output(PluginInstance* plugin)
 {
    machineRec* machine = plugin_machine(plugin);
 #if USE_LOCKING
@@ -269,7 +269,7 @@ try_to_output(plugin_instance* plugin)
 #endif   
    
    list_with_tail &queue = machine->output_queue;
-   plugin_instance* next = plugin->next;
+   PluginInstance* next = plugin->next;
 
    MDB(("%s: Queues: output: %d\t internal: %d\t input: %d \n", __FUNCTION__,
         queue_lenght(queue),
@@ -337,7 +337,7 @@ send_message_about_event(DeviceIntPtr keybd, cons *handle)
 
 
 static void
-output_event(cons* handle, plugin_instance* plugin, const char* comment)
+output_event(cons* handle, PluginInstance* plugin, const char* comment)
 {
    // fixme: we should store the info on the really pressed keycode (simply for debugging)
    // this is problematic, however !!
@@ -425,7 +425,7 @@ overlap_tolerance_of(fork_configuration* config, KeyCode code, KeyCode verificat
  * todo:  do away with the `forked_key' argument --- it's useless!
  * */
 inline void
-activate_fork(machineRec *machine, list_with_tail &queue, plugin_instance* plugin, KeyCode forked_key)
+activate_fork(machineRec *machine, list_with_tail &queue, PluginInstance* plugin, KeyCode forked_key)
 {
    assert(queue.head);
    assert(detail_of(queue.head->car) == forked_key);
@@ -455,7 +455,7 @@ activate_fork(machineRec *machine, list_with_tail &queue, plugin_instance* plugi
  * note: was , Bool force
  */
 static void
-step_fork_automaton_by_force(machineRec *machine, plugin_instance* plugin) /* fixme: output ?? */
+step_fork_automaton_by_force(machineRec *machine, PluginInstance* plugin) /* fixme: output ?? */
 {
    /* make all the forkable  forked:   Confirm: */
    if (machine->state == normal) {
@@ -496,7 +496,7 @@ step_fork_automaton_by_force(machineRec *machine, plugin_instance* plugin) /* fi
 
 
 static void
-step_fork_automaton_by_time(machineRec *machine, plugin_instance* plugin, Time current_time)
+step_fork_automaton_by_time(machineRec *machine, PluginInstance* plugin, Time current_time)
 {
    if ((machine->state == normal) || (machine->state == deactivated)) {
       ErrorF("%s: unexpected: %s!", __FUNCTION__, describe_machine_state(machine));
@@ -588,7 +588,7 @@ do_enqueue_event(machineRec *machine, cons *handle)
 }
 
 static void
-do_confirm_non_fork(machineRec *machine, cons *handle, plugin_instance* plugin)
+do_confirm_non_fork(machineRec *machine, cons *handle, PluginInstance* plugin)
 {
    assert(machine->time_left == 0);
    change_state(machine,deactivated);
@@ -604,7 +604,7 @@ do_confirm_non_fork(machineRec *machine, cons *handle, plugin_instance* plugin)
 
 // so HANDLE confirms fork of the suspect- first event on the internale_queue.
 static void
-do_confirm_fork(machineRec *machine, cons *handle, plugin_instance* plugin)
+do_confirm_fork(machineRec *machine, cons *handle, PluginInstance* plugin)
 {
    if (machine->time_left < 0)
        machine->time_left = 0;
@@ -633,7 +633,7 @@ time_of_previous_event(machineRec *machine, cons *handle)
 #define suspected_p(k)     (k == suspected)
 
 static void
-apply_event_to_verify(machineRec *machine, cons *handle, plugin_instance* plugin)
+apply_event_to_verify(machineRec *machine, cons *handle, PluginInstance* plugin)
 {
     InternalEvent* event = handle->car;
     Time simulated_time = time_of(event);
@@ -726,7 +726,7 @@ apply_event_to_verify(machineRec *machine, cons *handle, plugin_instance* plugin
 
 
 static void
-apply_event_to_suspect(machineRec *machine, cons *handle, plugin_instance* plugin)
+apply_event_to_suspect(machineRec *machine, cons *handle, PluginInstance* plugin)
 {
     InternalEvent* event = handle->car;
     Time simulated_time = time_of(event);
@@ -842,7 +842,7 @@ apply_event_to_suspect(machineRec *machine, cons *handle, plugin_instance* plugi
 }
 
 static void
-apply_event_to_normal(machineRec *machine, cons *handle, plugin_instance* plugin)
+apply_event_to_normal(machineRec *machine, cons *handle, PluginInstance* plugin)
 {
     DeviceIntPtr keybd = plugin->device;
     XkbSrvInfoPtr xkbi= keybd->key->xkbInfo;
@@ -986,7 +986,7 @@ apply_event_to_normal(machineRec *machine, cons *handle, plugin_instance* plugin
  *      push_on_queue
  */
 static void
-step_fork_automaton_by_key(machineRec *machine, cons *handle, plugin_instance* plugin)
+step_fork_automaton_by_key(machineRec *machine, cons *handle, PluginInstance* plugin)
 {
    assert (handle);
 
@@ -1105,7 +1105,7 @@ dump_event(KeyCode key, KeyCode fork, bool press, Time event_time, XkbDescPtr xk
 /* dump on the stderr of the X server. */
 /* todo: if i had  machine-> plugin pointer.... */
 static void
-dump_last_events(plugin_instance* plugin)
+dump_last_events(PluginInstance* plugin)
 {
    machineRec* machine = plugin_machine(plugin);
       
@@ -1175,7 +1175,7 @@ dump_last_events(plugin_instance* plugin)
  * after that you have to:   cancel the timer!!!
  */
 static void
-try_to_play(plugin_instance* plugin, Time current_time, Bool force)
+try_to_play(PluginInstance* plugin, Time current_time, Bool force)
 {
    machineRec *machine = plugin_machine(plugin);
    
@@ -1236,7 +1236,7 @@ try_to_play(plugin_instance* plugin, Time current_time, Bool force)
 /* used only in configure.c ! */
 // replay the events on the `internal' queue
 void
-replay_events(plugin_instance* plugin, Time current_time, Bool force)
+replay_events(PluginInstance* plugin, Time current_time, Bool force)
    // the 1st event from the queue has just been commited.
 {
    machineRec* machine= plugin_machine(plugin);
@@ -1286,7 +1286,7 @@ replay_events(plugin_instance* plugin, Time current_time, Bool force)
  */ 
 inline
 int                             // return:  0  nothing  -1  skip it
-filter_config_key(plugin_instance* plugin,const InternalEvent *event)
+filter_config_key(PluginInstance* plugin,const InternalEvent *event)
 {
    static unsigned char config_mode = 0;
    // != 0   while the Pause key is down, i.e. we are configuring keys:
@@ -1411,7 +1411,7 @@ filter_config_key(plugin_instance* plugin,const InternalEvent *event)
 
 // update plugin->wakeup_time
 static void
-set_wakeup_time(plugin_instance* plugin, plugin_time now)
+set_wakeup_time(PluginInstance* plugin, Time now)
 {
    machineRec* machine = plugin_machine(plugin);
 #if USE_LOCKING
@@ -1468,15 +1468,15 @@ create_handle_for_event(InternalEvent *event, bool owner)
     it's a trampoline for the automaton.
  */
 static void
-ProcessEvent(plugin_instance* plugin, InternalEvent *event, Bool owner)
+ProcessEvent(PluginInstance* plugin, InternalEvent *event, Bool owner)
 {
    DeviceIntPtr keybd = plugin->device;
-   plugin_time now = time_of(event);
+   Time now = time_of(event);
 
 #if 0
    if (!(press_p(event) || release_p(event)))
        {
-	   plugin_instance* next = plugin->next;
+	   PluginInstance* next = plugin->next;
 #if DEBUG
 	   if (((machineRec*) plugin_machine(plugin))->config->debug)
 	       {
@@ -1547,7 +1547,7 @@ ProcessEvent(plugin_instance* plugin, InternalEvent *event, Bool owner)
 
 
 static void
-step_in_time_locked(plugin_instance* plugin, plugin_time now)
+step_in_time_locked(PluginInstance* plugin, Time now)
 {
    machineRec* machine = plugin_machine(plugin);
    MDB(("%s:\n", __FUNCTION__));
@@ -1573,7 +1573,7 @@ step_in_time_locked(plugin_instance* plugin, plugin_time now)
 
 
 static void
-step_in_time(plugin_instance* plugin, plugin_time now)
+step_in_time(PluginInstance* plugin, Time now)
 {
    machineRec* machine = plugin_machine(plugin);
    MDB(("%s:\n", __FUNCTION__));
@@ -1585,7 +1585,7 @@ step_in_time(plugin_instance* plugin, plugin_time now)
 
 /* called from AllowEvents, after all events from the queue have been pushed: . */
 static void
-fork_thaw_notify(plugin_instance* plugin, plugin_time now)
+fork_thaw_notify(PluginInstance* plugin, Time now)
 {
    machineRec* machine = plugin_machine(plugin);
    MDB(("%s @ time %u\n", __FUNCTION__, (int)now));
@@ -1613,7 +1613,7 @@ fork_thaw_notify(plugin_instance* plugin, plugin_time now)
 
 /* For now this is called to many times, for different events.! */
 static void
-mouse_call_back (CallbackListPtr *, plugin_instance* plugin,
+mouse_call_back (CallbackListPtr *, PluginInstance* plugin,
 		 DeviceEventInfoRec* dei)
 {
    InternalEvent *event = dei->event;
@@ -1641,7 +1641,7 @@ mouse_call_back (CallbackListPtr *, plugin_instance* plugin,
  * prepare timer?
  * 
  * returns: erorr of Success. Should attach stuff by side effect ! */
-static plugin_instance*
+static PluginInstance*
 make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
 {
    DB(("%s\n", __FUNCTION__));
@@ -1650,7 +1650,7 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
    
    
    // is there any other exported malloc-ing macro?
-   plugin_instance* plugin = (plugin_instance*) malloc(sizeof(plugin_instance));
+   PluginInstance* plugin = (PluginInstance*) malloc(sizeof(PluginInstance));
    plugin->pclass = plugin_class;
    plugin->device = keybd;
 
@@ -1748,7 +1748,7 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
 
 static
 int
-stop_and_exhaust_machine(plugin_instance* plugin)
+stop_and_exhaust_machine(PluginInstance* plugin)
 {
    /* we have to push all releases at least. and all forked ... */
 
@@ -1764,7 +1764,7 @@ stop_and_exhaust_machine(plugin_instance* plugin)
 
 static
 int
-destroy_machine(plugin_instance* plugin)
+destroy_machine(PluginInstance* plugin)
 {
    machineRec* machine = plugin_machine(plugin);
    machine->lock = 1;
@@ -1823,7 +1823,7 @@ machine_configure_key (machineRec* machine, int type, KeyCode key, int value, Bo
 
 
 static int
-machine_configure_global (plugin_instance* plugin, machineRec* machine, int type, int value, Bool set)
+machine_configure_global (PluginInstance* plugin, machineRec* machine, int type, int value, Bool set)
 {
    switch (type){
    case fork_configure_overlap_limit:
@@ -1905,7 +1905,7 @@ machine_configure_global (plugin_instance* plugin, machineRec* machine, int type
 
 /* Return a value requested, or 0 on error.*/
 static int
-machine_configure_get(plugin_instance* plugin, int values[5], int return_config[3])
+machine_configure_get(PluginInstance* plugin, int values[5], int return_config[3])
 {
    assert (strcmp (PLUGIN_NAME(plugin), FORK_PLUGIN_NAME) == 0);
 
@@ -1944,7 +1944,7 @@ machine_configure_get(plugin_instance* plugin, int values[5], int return_config[
 
 /* Scan the DATA (of given lenght), and translate into configuration commands, and execute on plugin's machine */
 static int
-machine_configure(plugin_instance* plugin, int values[5])
+machine_configure(PluginInstance* plugin, int values[5])
 {
    assert (strcmp (PLUGIN_NAME(plugin), FORK_PLUGIN_NAME) == 0);
 
@@ -1984,7 +1984,7 @@ machine_configure(plugin_instance* plugin, int values[5])
 
 
 static void /*todo: int*/
-machine_command(ClientPtr client, plugin_instance* plugin, int cmd, int data1, int data2, int data3, int data4)
+machine_command(ClientPtr client, PluginInstance* plugin, int cmd, int data1, int data2, int data3, int data4)
 {
    DB(("%s cmd %d, data %d ...\n", __FUNCTION__, cmd, data1));
    switch (cmd)
