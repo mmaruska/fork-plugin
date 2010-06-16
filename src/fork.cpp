@@ -76,6 +76,7 @@ extern "C" {
 #include <stdio.h>
 #include <string.h>
 
+#include <xkbfile.h>
 /* `configuration' .... processing requests: */
 }
 
@@ -125,7 +126,7 @@ const char* event_names[] = {
 
 /* memory problems:
  *     machine->previous_event
- * */
+ */
 int memory_balance = 0;
 
 /*  Functions on xEvent */
@@ -175,17 +176,6 @@ detail_of(const InternalEvent* event)
    return event->device_event.detail.key;
 }
 
-/* todo:  use #include <.h>
- * where is it for the server?*/
-extern char *XKeysymToString(KeySym);
-
-extern char *	XkbKeysymText(
-    KeySym	/* sym */,
-    unsigned	/* format */
-   );
-
-
-
 // static implicitly
 const int BufferLenght = 200;
 
@@ -205,17 +195,11 @@ describe_key(DeviceIntPtr keybd, InternalEvent *event)
     if ((!sym) || (! isalpha(*(unsigned char*)sym)))
 	sym = (KeySym*) " ";
 
-    /* inside server it's useless:  XkbKeysymText(*sym, XkbCFile),
-     * fixme: XKeysymToString(*sym), */
     snprintf(buffer, BufferLenght, "(%s) %d %4.4s -> %c %s (%u)",
 	     keybd->name,
 	     key, keycode_name,(char)*sym,
 	     event_type_brief(event),(unsigned int)time_of(event));
 
-#if 0
-    DB(("(%s) %d %4.4s -> %c  %s (%u)", keybd->name, key, keycode_name,
-	(char)*sym, event_type_brief(event), (unsigned int)time_of(event)));
-#endif
     return buffer;
 }
 
@@ -229,7 +213,6 @@ describe_machine_state(machineRec* machine)
    snprintf(buffer, BufferLenght, "%s[%dm%s%s",
             escape_sequence, 32 + machine->state,
             state_description[machine->state], color_reset);
-
    return buffer;
 }
 
