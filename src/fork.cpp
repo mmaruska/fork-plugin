@@ -31,17 +31,17 @@
 */
 
 #define USE_LOCKING 1
-// Locking is broken: but it's not used now:
-//
-//   ---> keyevent ->  xkb action -> mouse 
-//                                     |
-//   prev   <----                 <---  thaw
-//        ->   process  \
-//               exits  /
-//             unlocks!
-//
-//
-//  lock is gone!! <- action
+/* Locking is broken: but it's not used now:
+ *
+ *   ---> keyevent ->  xkb action -> mouse 
+ *                                     |
+ *   prev   <----                 <---  thaw
+ *        ->   process  \
+ *               exits  /
+ *             unlocks!
+ *
+ *
+ *  lock is gone!! <- action */
 
 
 /* performance enhancement:
@@ -75,9 +75,6 @@ extern "C" {
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
-
-#define xf86SoundKbdBell(a,b,c) while (0){}
-
 
 /* `configuration' .... processing requests: */
 }
@@ -186,6 +183,7 @@ extern char *	XkbKeysymText(
     KeySym	/* sym */,
     unsigned	/* format */
    );
+
 
 
 // static implicitly
@@ -1062,11 +1060,9 @@ void
 dump_event(KeyCode key, KeyCode fork, bool press, Time event_time, XkbDescPtr xkb,
 	   XkbSrvInfoPtr xkbi, Time prev_time)
 {
-   //   1. 43 
-//         ErrorF("%d: %d\n",i++, key);
+  // ErrorF("%d: %d\n",i++, key);
    char* ksname = xkb->names->keys[key].name;
-//         ErrorF("%d %d %.4s\n",i, key, ksname);
-
+   // ErrorF("%d %d %.4s\n",i, key, ksname);
 
    // 0.1   keysym bound to the key:
    KeySym* sym= XkbKeySymsPtr(xkbi->desc,key); // mmc: is this enough ?
@@ -1308,7 +1304,6 @@ filter_config_key(PluginInstance* plugin,const InternalEvent *event)
       if ((detail_of(event) == PAUSE_KEYCODE) && release_p(event)){ //  fake ?
          if ( (time_of(event) - last_press_time) < 30) // fixme: configurable!
             {
-               xf86SoundKbdBell(100, 500, 400);
                ErrorF("the key seems buggy, tolerating %lu: %d! .. & latching config mode\n",
 		      time_of(event), (int)(time_of(event) - last_press_time));
                latch = 1;
@@ -1344,9 +1339,6 @@ filter_config_key(PluginInstance* plugin,const InternalEvent *event)
                machine->lock = 1;
                machine_switch_config(plugin, machine,0); // current ->toggle ?
                machine->lock = 0;
-               // beep !!!
-               ErrorF("BELL\n");
-               xf86SoundKbdBell(100, -1, 400);
 
                /* fixme: but this is default! */
                machine->forkActive[detail_of(event)] = 0; /* ignore the release as well. */
@@ -1361,10 +1353,7 @@ filter_config_key(PluginInstance* plugin,const InternalEvent *event)
                machine->lock = 1;
                machine_switch_config(plugin, machine,1); // current ->toggle ?
                machine->lock = 0;
-               ErrorF("BELL\n");
-               xf86SoundKbdBell(100, 1000, 400);
                machine->forkActive[detail_of(event)] = 0; 
-               // beep !!!
                break;
             }
 
@@ -1400,7 +1389,6 @@ filter_config_key(PluginInstance* plugin,const InternalEvent *event)
          last_press_time = time_of(event);
          ErrorF("entering config_mode & discarding the event: %lu!\n", last_press_time);
          config_mode = 1;
-         xf86SoundKbdBell(100, -1, 400);
          /* fixme: should I update the ->down bitarray? */
          return -1;
       } else
@@ -1678,11 +1666,13 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
       }
    
    config->next = config_no_fork;
-   // config->id = config_no_fork->id + 1; // so we start w/ config 1. 0 is empty and should not be modifyable
+   // config->id = config_no_fork->id + 1;
+   // so we start w/ config 1. 0 is empty and should not be modifyable
 
    
    // i should use  cout <<  to avoid the segfault if something is not a string.
-   ErrorF("%s: constructing the machine %d (official release: %s)\n", __FUNCTION__, PLUGIN_VERSION, VERSION_STRING); // , VERSION 
+   ErrorF("%s: constructing the machine %d (official release: %s)\n",
+	  __FUNCTION__, PLUGIN_VERSION, VERSION_STRING); // , VERSION 
 
    /* state: */
    forking_machine =  (machineRec* )mmalloc(sizeof(machineRec));
@@ -2004,11 +1994,7 @@ machine_command(ClientPtr client, PluginInstance* plugin, int cmd, int data1, in
 
 
 static pointer /*DevicePluginRec* */
-fork_plug(
-#if !xorg
-        ModuleDescPtr	module,
-#endif
-          pointer	options,
+fork_plug(pointer	options,
           int		*errmaj,
           int		*errmin)
 {
@@ -2028,78 +2014,41 @@ fork_plug(
 	  // NULL // on_mouse_event
 	};
 #else
-   static DevicePluginRec plugin_class =
-      {
-         FORK_PLUGIN_NAME,
-         make_machine,
-         ProcessEvent,
-         step_in_time,
-         fork_thaw_notify,
-         // module ?
-         machine_configure,
-         machine_configure_get,
+    static DevicePluginRec plugin_class =
+	{
+	    FORK_PLUGIN_NAME,
+	    make_machine,
+	    ProcessEvent,
+	    step_in_time,
+	    fork_thaw_notify,
+	    // module ?
+	    machine_configure,
+	    machine_configure_get,
 
-         machine_command,
+	    machine_command,
 
-         // stop ? exhaust
-         NULL, 0,
-         stop_and_exhaust_machine,
-         destroy_machine,
-      };
+	    // stop ? exhaust
+	    NULL, 0,
+	    stop_and_exhaust_machine,
+	    destroy_machine,
+	};
 #endif
 
-   plugin_class.ref_count = 0;
+    plugin_class.ref_count = 0;
 #if !xorg
-   plugin_class.module = module;
+    plugin_class.module = module;
 #endif
-   /* add_plugin(&plugin); */
-   xkb_add_plugin(&plugin_class);
+    /* add_plugin(&plugin); */
+    xkb_add_plugin(&plugin_class);
 
-   return &plugin_class;
+    return &plugin_class;
 }
 
 extern "C" {
 
-void _init()
+void __attribute__((constructor))  on_init() 
 {
-        ErrorF("%s:\n", __FUNCTION__); /* impossible */
-// mmc: I need to run `fork_plug' !
-        fork_plug(NULL,NULL,NULL);
+    ErrorF("%s:\n", __FUNCTION__); /* impossible */
+    fork_plug(NULL,NULL,NULL);
 }
-}
-// ENd Xorg loader support
-
-extern "C" {
-
-#ifdef xloader
-
-#if ! xorg
-/* is at the module level */
-static XF86ModuleVersionInfo fork_module_version_rec = {
-   "fork",                      // name
-   "Michal Maruska (c) 2003-2005",                   // vendor
-   /*  */
-   MODINFOSTRING1,
-   MODINFOSTRING2,
-   XF86_VERSION_CURRENT,
-
-   // module-specific  major mino patch
-   1, 0, 0,
-   "xkb-plugin", // ABI_CLASS_XINPUT
-   1,                          // abi version
-   "xkb-plugin", // "keyboard event processing plugin", //"XFree86 XInput Driver" //MOD_CLASS_XINPUTa,
-   {0, 0, 0, 0}		/* signature, to be patched into the file by */
-   /* a tool */
-};
-
-   
-
-/* mmc:  this must be public visible. */
-XF86ModuleData forkModuleData = {
-   &fork_module_version_rec,
-   fork_plug,
-   fork_unplug
-};
-#endif /* !xorg */
-#endif
 }
