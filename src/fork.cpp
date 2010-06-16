@@ -2012,21 +2012,21 @@ fork_plug(
           int		*errmaj,
           int		*errmin)
 {
-   DB(("%s\n", __FUNCTION__));
-#if 0
-   static struct _DevicePluginRec  plugin_class =
-      {
-         .name =        FORK_PLUGIN_NAME,
-         .instantiate = make_machine,
-         .ProcessEvent = ProcessEvent,
-         .ProcessTime =  step_in_time,
-         .NotifyThaw = fork_thaw_notify,
-         // module ?
-         .config = machine_configure,
-         .getconfig = machine_configure_get,
-         .end = destroy_machine,
-         // NULL // on_mouse_event
-      };
+    DB(("%s\n", __FUNCTION__));
+#if 1
+    static struct _DevicePluginRec plugin_class =
+	{
+	  name :        FORK_PLUGIN_NAME,
+	  instantiate : make_machine,
+	  ProcessEvent : ProcessEvent,
+	  ProcessTime :  step_in_time,
+	  NotifyThaw : fork_thaw_notify,
+	    // module ?
+	  config : machine_configure,
+	  getconfig : machine_configure_get,
+	  // end : destroy_machine,
+	  // NULL // on_mouse_event
+	};
 #else
    static DevicePluginRec plugin_class =
       {
