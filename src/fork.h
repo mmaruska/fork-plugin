@@ -2,7 +2,10 @@
 #define _FORK_H_
 
 
-#define MMC_PIPELINE 1
+#include <xorg-server.h>
+#ifndef MMC_PIPELINE
+#error "This is useful only when the xorg-server is configured with --enable-pipeline"
+#endif
 
 
 extern "C" {
@@ -21,9 +24,8 @@ extern "C" {
 #include "config.h"
 
 #define plugin_machine(p) ((machineRec*)(plugin->data))
-
 #define MALLOC(type)   (type *) malloc(sizeof (type))
-#define MAX_KEYCODE  256   
+#define MAX_KEYCODE  256   	/* fixme: inherit from xorg! */
 
 
 /* we can have a (linked) list of configs! */
@@ -32,9 +34,9 @@ typedef struct _fork_configuration fork_configuration;
 struct _fork_configuration
 {
     /* static data of the machine: i.e.  `configuration' */
-
     /* 256 max keycode */
-    KeyCode          fork_keycode[MAX_KEYCODE]; /* value for new forks. */
+    /* value for new forks. */
+    KeyCode          fork_keycode[MAX_KEYCODE];
 
 #if 0
     KeyCode          forkCancel[MAX_KEYCODE]; /* i -> j     j suppresses forking of i */
@@ -43,7 +45,6 @@ struct _fork_configuration
 	unsigned char   count;
 	KeyCode* start;
     } fork_supress[MAX_KEYCODE];   /* max keycode! Keycode */
-
 #endif
 
 
@@ -161,36 +162,37 @@ enum {
 
 
 #if 0
-/* see /p/xfree-4.3.99.901/work/xc/include/extensions/XKBsrv.h for the structure  XkbSrvInfoRec/*XkbSrvInfoPtr,  which contains the configuration
+/* see /p/xfree-4.3.99.901/work/xc/include/extensions/XKBsrv.h for the structure  XkbSrvInfoRec
+ * XkbSrvInfoPtr,  which contains the configuration
  * + the machine + the extended 'state' (what is currently forked, and how). That structure is per keyboard ?
  * */
-
 #endif
 
 
 
 // I want to track the memory usage, and warn when it's too high.
-extern int memory_balance;
+extern size_t memory_balance;
 
 inline 
-void* mmalloc(int size)
+void* mmalloc(size_t size)
 {
-   void* p = xalloc(size);
-   if (p) {
-      memory_balance += size;
-      if (memory_balance > sizeof(machineRec) + sizeof(PluginInstance) + 2000)
-	/* machine->max_last * sizeof() */
-	ErrorF("%s: memory_balance = %d\n", __FUNCTION__, memory_balance);
-   }
-   return p;
+    void* p = malloc(size);
+    if (p)
+    {
+	memory_balance += size;
+	if (memory_balance > sizeof(machineRec) + sizeof(PluginInstance) + 2000)
+	    /* machine->max_last * sizeof() */
+	    ErrorF("%s: memory_balance = %d\n", __FUNCTION__, memory_balance);
+    }
+    return p;
 }
 
 inline
 void
-mxfree(void* p, int size)
+mxfree(void* p, size_t size)
 {
    memory_balance -= size;
-   xfree(p);
+   free(p);
 }
 
 #endif	/* _FORK_H_ */

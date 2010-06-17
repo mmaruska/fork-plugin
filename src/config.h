@@ -2,7 +2,7 @@
 #define CONFIG_H
 
 
-#define xloader 1               // this is loaded as a module!
+#define XLOADER 1               // this is loaded as a module!
 #define XKB_IN_SERVER 1
 #define PLUGIN_VERSION 32
 #define VERSION_STRING VERSION
