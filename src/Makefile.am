@@ -26,9 +26,10 @@
 # TODO: -nostdlib/-Bstatic/-lgcc platform magic, not installing the .a, etc.
 @DRIVER_NAME@_la_LTLIBRARIES = @DRIVER_NAME@.la
 @DRIVER_NAME@_la_LDFLAGS = -module -avoid-version
-@DRIVER_NAME@_ladir = @inputdir@
+@DRIVER_NAME@_ladir = /usr/lib/modules/xkb-plugins/
+# @inputdir@
 
-@DRIVER_NAME@_la_SOURCES = @DRIVER_NAME@.cpp queue.cpp configure.cpp
+@DRIVER_NAME@_la_SOURCES = @DRIVER_NAME@.cpp queue.cpp configure.cpp fork.h
 
 
 @DRIVER_NAME@_CFLAGS = @XORG_CFLAGS@
