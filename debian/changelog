@@ -1,4 +1,10 @@
-fork-plugin (1-1) unstable; urgency=low
+fork-plugin (2) lucid; urgency=low
+
+  * update
+
+ -- Michal Maruska <mmaruska@gmail.com>  Sat, 19 Jun 2010 10:27:33 +0000
+
+fork-plugin (1) unstable; urgency=low
 
   * Initial release
 
