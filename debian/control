@@ -2,11 +2,11 @@ Source: fork-plugin
 Section: x11
 Priority: optional
 Maintainer: Michal Maruska <mmaruska@gmail.com>
-Build-Depends: cdbs, debhelper (>= 5), xserver-xorg-dev, pkg-config
+Build-Depends: cdbs, debhelper (>= 5), xserver-xorg-dev (= 2:1.7.6-2ubuntu7.1+mmc3), pkg-config
 Standards-Version: 3.7.2
 
 Package: fork-plugin
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, xserver-xorg-core
+Depends: ${shlibs:Depends}, ${misc:Depends}, xserver-xorg-core (= 2:1.7.6-2ubuntu7.1+mmc3)
 Description: A plugin for the input processing pipeline in Xorg server.
  
