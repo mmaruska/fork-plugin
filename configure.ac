@@ -60,6 +60,7 @@ AC_ARG_WITH(xorg-module-dir,
 inputdir=${moduledir}/input
 AC_SUBST(inputdir)
 
+
 # Checks for extensions
 # XORG_DRIVER_CHECK_EXT(RANDR, randrproto)
 #XORG_DRIVER_CHECK_EXT(XKB, kbproto)
@@ -68,12 +69,16 @@ AC_SUBST(inputdir)
 # Checks for pkg-config packages
 PKG_CHECK_MODULES(XORG, [xorg-server >= 1.0.99.901] xproto $REQUIRED_MODULES)
 
+# includedir=$(pkg-config --variable=sdkdir xorg-server)
+# AC_SUBST(includedir)
+
 # Define an Automake variable for the driver name
 DRIVER_NAME=fork
 AC_SUBST([DRIVER_NAME])
 AC_SUBST([XORG_CFLAGS])
 
 AC_CONFIG_FILES([Makefile
+		  include/Makefile
 		  src/Makefile])
 #                 man/Makefile
 
