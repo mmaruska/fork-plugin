@@ -1,3 +1,9 @@
+fork-plugin (2.5) lucid; urgency=low
+
+  * bump the dependency on new X server version
+
+ -- Michal Maruska <mmaruska@gmail.com>  Mon, 21 Jun 2010 03:27:05 +0300
+
 fork-plugin (2.4) lucid; urgency=low
 
   * install the header!
