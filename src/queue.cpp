@@ -41,7 +41,7 @@ init_queue(list_with_tail &queue, const char* name)
 
 //  ref-cdr /nth-cdr
 cons*
-queue_skip(list_with_tail &queue, int n)
+queue_skip(list_with_tail &queue, int n) // nth
 {
     // N must be  < queue_lenght!!
     /* go  N ahead along the queue */
@@ -112,6 +112,7 @@ push_on_queue(list_with_tail &queue, cons *handle)
 }
 
 //  unused:
+#if 0
 void
 append_to(list_with_tail &from, list_with_tail &to)
 {
@@ -120,18 +121,19 @@ append_to(list_with_tail &from, list_with_tail &to)
     to.tail->cdr = from.head;
     from.head = from.tail = NULL;
 }
+#endif
 
-//      from      to          to = result    from -> ()  
-//     xxxxxxx   yyyyy   ->   xxxxyyyy
+
+// slice
 void
-empty_queue_to(list_with_tail &from, list_with_tail &to)
+slice_queue(list_with_tail &from, list_with_tail &to)
 {
     // if from is NULL, this fails!
     assert (from.tail);
    
     from.tail->cdr = to.head;
     to.head = from.head;
-    // [11 Mar 05]  ... i saw similar code in sawfish/src/pixmap-cache.c
+    // [11 Mar 05]  ... I saw similar code in sawfish/src/pixmap-cache.c
     if (!to.tail)
 	to.tail = from.tail;
     from.head = from.tail = NULL;

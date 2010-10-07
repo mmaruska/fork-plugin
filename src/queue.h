@@ -17,8 +17,16 @@ extern "C" {
 }
 
 
+typedef struct {
+        InternalEvent* car;
+        KeyCode forked; /* if forked to (another keycode), this is the original key */
+} key_event;
 
-/* I could make a template. For now i do not! */
+queue<key_event> queue;
+
+
+
+/* I could make a template. For now I do not! */
 typedef struct cons cons;
 struct cons
 {
@@ -41,14 +49,18 @@ typedef struct {
 
 
 
-
 extern int queue_lenght(const list_with_tail &queue); 
 extern Bool queue_empty(const list_with_tail &queue) ;
 
 extern cons* pop_from_queue(list_with_tail &queue, int empty_ok);
 extern void  push_on_queue(list_with_tail &queue, cons *handle);
 extern cons* queue_skip(list_with_tail &queue, int n);
-extern void  empty_queue_to(list_with_tail &from, list_with_tail &to);
+
+/* move the content of FROM to the beginning of TO (hence make FROM empty) */
+/*      from      to          to = result    from -> ()  
+ *     xxxxxxx   yyyyy   ->   xxxxyyyy
+ */
+extern void  slice_queue(list_with_tail &from, list_with_tail &to);
 
 extern void init_queue(list_with_tail &queue, const char* name);
 

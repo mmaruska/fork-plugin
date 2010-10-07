@@ -1156,7 +1156,7 @@ try_to_play(PluginInstance* plugin, Time current_time, Bool force)
 
          if (!queue_empty(machine->internal_queue)) {
 	     // this resets/empties the internal queue.
-            empty_queue_to(machine->internal_queue, input_queue);
+            move_queue_to(machine->internal_queue, input_queue);
             MDB(("now in input_queue: %d\n", queue_lenght(input_queue)));
          }
          /* fixme: [19 ott 05]   */
@@ -1228,7 +1228,7 @@ replay_events(PluginInstance* plugin, Time current_time, Bool force)
 
    if (!queue_empty(machine->internal_queue))
        // prepend and empty. (transfer)
-      empty_queue_to(machine->internal_queue, machine->input_queue);
+      move_queue_to(machine->internal_queue, machine->input_queue);
 
    machine->state = normal;
 
