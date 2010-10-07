@@ -155,7 +155,7 @@ enum {
    HYPER_KEYCODE = 94,
    ALT_KEYCODE = 50,
 #endif
-   PAUSE_KEYCODE = 110
+   PAUSE_KEYCODE = 127
    //   #define KEY_Pause        /* Pause                 0x66  */  102
 };
 
