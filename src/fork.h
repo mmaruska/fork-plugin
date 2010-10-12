@@ -129,20 +129,7 @@ extern int dump_last_events_to_client(PluginInstance* plugin, ClientPtr client, 
 
 
 enum {
-#if 0
-   SHIFT_KEYCODE = 37,
-   A_KEYCODE = 38,
-   S_KEYCODE = 39,
-   D_KEYCODE = 40,
-   K_KEYCODE = 45,
-   G_KEYCODE = 42,
-   F_KEYCODE = 41,
-   GROUP_2_KEYCODE = 66,
-   HYPER_KEYCODE = 94,
-   ALT_KEYCODE = 50,
-#endif
    PAUSE_KEYCODE = 127
-   //   #define KEY_Pause        /* Pause                 0x66  */  102
 };
 
 
