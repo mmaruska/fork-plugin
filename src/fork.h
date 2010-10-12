@@ -22,6 +22,8 @@ extern "C" {
 };
 
 #include "config.h"
+#include "queue.h"
+#include "fork_requests.h"
 
 #define plugin_machine(p) ((machineRec*)(plugin->data))
 #define MALLOC(type)   (type *) malloc(sizeof (type))
@@ -30,6 +32,7 @@ extern "C" {
 
 /* we can have a (linked) list of configs! */
 typedef struct _fork_configuration fork_configuration; 
+
 
 struct _fork_configuration
 {
@@ -69,11 +72,6 @@ struct _fork_configuration
     int id;
     fork_configuration*   next;
 };
-
-
-/* this is the alternative to static-queue.h */
-#include "queue.h"
-#include "fork_requests.h"
 
 
 
