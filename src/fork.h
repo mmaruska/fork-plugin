@@ -12,14 +12,9 @@ extern "C" {
 #include <X11/X.h>
 #include <X11/Xproto.h>
 #include <X11/keysym.h>
-
-/* sdk: */
-/* this is needed to typedef Bool, used in  X11/extensions/XKBstr.h */
 #include <xorg/inputstr.h>
-
-/* `probably' i use it only to print out the keysym in debugging stuff*/
-   /* `configuration' .... processing requests: */
 };
+
 
 #include "config.h"
 #include "queue.h"
@@ -131,15 +126,6 @@ extern int dump_last_events_to_client(PluginInstance* plugin, ClientPtr client, 
 enum {
    PAUSE_KEYCODE = 127
 };
-
-
-
-#if 0
-/* see /p/xfree-4.3.99.901/work/xc/include/extensions/XKBsrv.h for the structure  XkbSrvInfoRec
- * XkbSrvInfoPtr,  which contains the configuration
- * + the machine + the extended 'state' (what is currently forked, and how). That structure is per keyboard ?
- * */
-#endif
 
 
 
