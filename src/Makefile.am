@@ -29,7 +29,8 @@
 @DRIVER_NAME@_ladir = /usr/lib/modules/xkb-plugins/
 # @inputdir@
 
-@DRIVER_NAME@_la_SOURCES = @DRIVER_NAME@.cpp queue.cpp configure.cpp fork.h
+# queue.cpp
+@DRIVER_NAME@_la_SOURCES = @DRIVER_NAME@.cpp configure.cpp fork.h
 
 
 @DRIVER_NAME@_CFLAGS = @XORG_CFLAGS@ -I../include/

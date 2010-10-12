@@ -7,18 +7,31 @@
 #error "This is useful only when the xorg-server is configured with --enable-pipeline"
 #endif
 
-
 extern "C" {
+#if 1
 #include <X11/X.h>
 #include <X11/Xproto.h>
 #include <X11/keysym.h>
 #include <xorg/inputstr.h>
+#endif
 };
-
 
 #include "config.h"
 #include "queue.h"
 #include "fork_requests.h"
+
+#include <string>
+
+using namespace std;
+using namespace __gnu_cxx;
+
+typedef struct {
+        InternalEvent* car;
+        KeyCode forked; /* if forked to (another keycode), this is the original key */
+} key_event;
+
+typedef my_queue<key_event> list_with_tail;
+
 
 #define plugin_machine(p) ((machineRec*)(plugin->data))
 #define MALLOC(type)   (type *) malloc(sizeof (type))
@@ -89,11 +102,13 @@ typedef struct machine
 
     /* fixme: i should start using OO for these queues */
 
-    list_with_tail internal_queue; /* still undecided. these events alone don't decide the 1st
+        // list_with_tail
+        my_queue<key_event> internal_queue;
+        /* still undecided. these events alone don't decide the 1st
 				    * on the queue.*/
-    list_with_tail input_queue;  /* not yet processed, b/c we wait for external events to resume
+        list_with_tail input_queue;  /* not yet processed, b/c we wait for external events to resume
 				  * processing?*/
-    list_with_tail output_queue; /* we have decided, but externals don't accept, so we keep them. */
+        list_with_tail output_queue; /* we have decided, but externals don't accept, so we keep them. */
 
 #if KEEP_PREVIOUS 
     cons* previous_event;
@@ -141,7 +156,7 @@ void* mmalloc(size_t size)
 	memory_balance += size;
 	if (memory_balance > sizeof(machineRec) + sizeof(PluginInstance) + 2000)
 	    /* machine->max_last * sizeof() */
-	    ErrorF("%s: memory_balance = %d\n", __FUNCTION__, memory_balance);
+	    ErrorF("%s: memory_balance = %ld\n", __FUNCTION__, memory_balance);
     }
     return p;
 }
