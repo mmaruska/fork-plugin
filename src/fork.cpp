@@ -1996,11 +1996,6 @@ fork_plug(pointer	options,
 	};
 
     plugin_class.ref_count = 0;
-    // old xfree86
-#if !xorg
-    plugin_class.module = module;
-#endif
-    /* add_plugin(&plugin); */
     xkb_add_plugin(&plugin_class);
 
     return &plugin_class;

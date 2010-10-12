@@ -1,8 +1,6 @@
 #ifndef _QUEUE_H_
 #define	_QUEUE_H_ 1
 
-#define xorg 1
-
 extern "C" {
 
 // #define XKB_IN_SERVER 1
