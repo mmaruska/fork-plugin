@@ -37,20 +37,8 @@ typedef struct _fork_configuration fork_configuration;
 struct _fork_configuration
 {
     /* static data of the machine: i.e.  `configuration' */
-    /* 256 max keycode */
-    /* value for new forks. */
+
     KeyCode          fork_keycode[MAX_KEYCODE];
-
-#if 0
-    KeyCode          forkCancel[MAX_KEYCODE]; /* i -> j     j suppresses forking of i */
-    KeyCode          forkClass[MAX_KEYCODE]; /*  supressing,  */
-    struct {
-	unsigned char   count;
-	KeyCode* start;
-    } fork_supress[MAX_KEYCODE];   /* max keycode! Keycode */
-#endif
-
-
     Bool          fork_repeatable[MAX_KEYCODE]; /* True -> if repeat, cancel possible fork. */
 
     /* global, not per-key: */
