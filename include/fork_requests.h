@@ -186,30 +186,4 @@ typedef struct
    archived_event e[];
 } fork_events_reply;
 
-
-
-#if 0                           /* obsolete! */
-typedef struct _forkGetLastKeysReply {
-   CARD8	type;		/* always X_Reply */
-   CARD8	deviceID;
-   CARD16	sequenceNumber B16;
-   CARD32	length B32;
-  //   CARD16	pad1 B16;
-   
-
-
-   CARD8        count;
-   CARD16	pad1 B16;
-   CARD8	pad2;
-
-   /* i think i _have_ to arrive at least at 32 bytes:  8  */
-   CARD32 data00 B32;
-   CARD32 data01 B32;
-   CARD32 data02 B32;
-   CARD32 data03 B32;
-   CARD32 data04 B32;
-} forkGetLastKeysReply;
-#define	sz_forkGetLastKeysReply		32
-#endif
-
 #endif
