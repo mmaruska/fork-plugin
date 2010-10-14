@@ -30,7 +30,7 @@
 # @inputdir@
 
 # queue.cpp
-@DRIVER_NAME@_la_SOURCES = @DRIVER_NAME@.cpp configure.cpp fork.h
+@DRIVER_NAME@_la_SOURCES = @DRIVER_NAME@.cpp configure.cpp history.cpp fork.h
 
 
 @DRIVER_NAME@_CFLAGS = @XORG_CFLAGS@ -I../include/
