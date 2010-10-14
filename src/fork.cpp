@@ -1057,7 +1057,7 @@ replay_events(PluginInstance* plugin, Time current_time, Bool force)
    if (!machine->internal_queue.empty())
      {
        machine->internal_queue.slice (machine->input_queue);
-       machine->internal_queue.swap(input_queue);
+       machine->internal_queue.swap(machine->input_queue);
      }
 
    machine->state = normal;
