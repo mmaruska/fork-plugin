@@ -1,3 +1,9 @@
+fork-plugin (2.6) lucid; urgency=low
+
+  * c++
+
+ -- Michal Maruska <mmaruska@gmail.com>  Tue, 12 Oct 2010 14:39:15 +0300
+
 fork-plugin (2.5.1) lucid; urgency=low
 
   * correct hard-wired PAUSE_KEYCODE, from Home to Pause
