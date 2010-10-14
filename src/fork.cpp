@@ -981,7 +981,9 @@ try_to_play(PluginInstance* plugin, Time current_time, Bool force) // force == F
       machine->verificator = 0;
 
       if (!(machine->internal_queue.empty())) {
-        // this resets/empties the internal queue.
+        // Slice with a reversed semantic:
+        // A.slice(B) --> ()  (AB)
+        // traditional is (AB) ()
         machine->internal_queue.slice(input_queue);
         machine->internal_queue.swap(input_queue);
 

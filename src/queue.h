@@ -13,7 +13,6 @@
 
 
 extern "C" {
-   // #define XKB_IN_SERVER 1
 #include <X11/X.h>
 #include <X11/Xproto.h>
 #include <X11/Xdefs.h>
@@ -29,80 +28,86 @@ using namespace std;
 using namespace __gnu_cxx;
 
 
+/* LIFO
+   + slice operation,
+
+   Memory/ownerhip:
+   the implementing container(list) handles pointers to objects.
+   The objects are owned by the application!
+   if a Reference is push()-ed, we make a Clone! But we never delete the objects.
+   pop() returns the pointer!
+*/
 template <typename T>
 class my_queue
 {
   private:
    slist<T*> list;
-   const char* m_name;     // string
+   const char* m_name;     // for debug string
    typename slist<T*>::iterator last_node;
 
   public:
-   const char* get_name() 
+   const char* get_name()
    {
-      return m_name;// .c_str();
+     return m_name?:"(unknown)";// .c_str();
    }
-
    // take ownership
    void set_name(const char* name)
    {
-      m_name = name; //string(name);
+      m_name = name;
    }
 
-   int length ();
+   int length() const;
 
-   bool empty () const;
-   // const_reference
+   bool empty() const;
+
    const T* front () const;
-   T* pop();     // list_with_tail &queue, int empty_ok)
-   void push(T* element); //list_with_tail &queue, cons *handle);
-   void push (const T& value);
-   // T nth(int n) const;    // list_with_tail &queue,
+   T* pop();
 
-   /* move the content of FROM to the beginning of TO (hence make FROM empty) */
-   /*      from      to          to = result    from -> ()
-    *     xxxxxxx   yyyyy   ->   xxxxyyyy
+   void push(T* element);
+   void push(const T& value);   // we clone the value!
+
+   /* move the content of appendix to the END of this queue
+    *      this      appendix    this        appendix
+    *     xxxxxxx   yyyyy   ->   xxxxyyyy       (empty)
     */
-   // extern void  slice_queue(list_with_tail &from, list_with_tail &to);
-   void slice (my_queue<T>&);
-   //extern void init_queue(list_with_tail &queue, const char* name);
+   void slice (my_queue<T>& appendix);
 
-   // c-tor:
-   my_queue<T>(const char* name) : m_name(name)
+   ~my_queue()
    {
-      last_node = list.end();
+     if (m_name)
+       {
+         free (m_name);
+         m_name = NULL;
+       }
+   }
+   my_queue<T>(const char* name = NULL) : m_name(name)
+   {
+     DB(("constructor\n"));
+     last_node = list.end();
    };
+
    void swap (my_queue<T>& peer)
    {
       list.swap(peer.list);
-#if 0
-      slist<T*>::iterator tmp;
-      tmp=last_node;
-      last_node=peer.last_node;
-      peer.last_node = tmp;
-#else
-      iter_swap(last_node,peer.last_node); // std::swap()
-#endif
-      DB(("SWAP\n"));
-      DB(("%s now has %d\n", get_name(), length()));
-      DB(("%s now has %d\n", peer.get_name(), peer.length()));
+      iter_swap(last_node,peer.last_node);
    }
 };
 
 
 
 template<typename T>
-int my_queue<T>::length ()
+int my_queue<T>::length () const
 {
-   typename slist<T*>::iterator i = list.begin();
-   //cons *iterator = queue.head;
-   // list.begin();
-   int len = 0;
-   while (i != list.end()) {
-      len++;
-      i++;// = iterator->cdr;
-   }
-   return len;
+  return list.size();
+#if 0
+  typename slist<T*>::iterator i = list.begin();
+  int len = 0;
+  while (i != list.end()) {
+    len++;
+    i++;
+  }
+  return len;
+#endif
 };
 
 template<typename T>
@@ -112,15 +117,11 @@ bool my_queue<T>::empty () const
 }
 
 
-
 template<typename T>
 void my_queue<T>::push (T* value)
 {
    DB(("%s: %s: now %d + 1\n", __FUNCTION__, get_name(), length()));
-
-   // empty()
-   // cerr << "push: new pointer: " << *value << "\n";
-   if (!empty ()) {                // last_node != list.end()
+   if (!empty ()) {
       last_node = list.insert_after(last_node, value);
    } else {
       list.push_front(value);
@@ -131,9 +132,7 @@ void my_queue<T>::push (T* value)
 template<typename T>
 void my_queue<T>::push (const T& value)
 {
-
    T* clone = new T(value);
-   //cerr << "push: new value: " << value << "\n";
    push(clone);
 }
 
@@ -161,21 +160,14 @@ void my_queue<T>::slice (my_queue<T> &suffix)
 {
    DB(("%s: %s: appending/moving all from %s:\n", __FUNCTION__, get_name(),
        suffix.get_name()));
-   // if (empty())
-    
+
    list.splice_after(last_node,
-                     //suffix.list.begin(),
-                     //suffix.last_node
                      suffix.list);
    last_node=suffix.last_node;
 
    DB(("%s now has %d\n", get_name(), length()));
    DB(("%s now has %d\n", suffix.get_name(), suffix.length()));
-
-   //suffix.list = 0;
-   // return list.front();
 }
-
 
 
 #endif
