@@ -88,3 +88,6 @@ cscope.*
 old
 man
 src/future.cpp
+clean-repo
+
+debian/fork-plugin
