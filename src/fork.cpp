@@ -277,7 +277,7 @@ change_state(machineRec* machine, state_type new_state)
 /* This is the matrix with some Time values:
  * using the fact, that valid KeyCodes are non zero, we use
  * the 0 column for `code's global values
- 
+
  * Global      xxxxxxxx unused xxxxxx
  * key-wise   per-pair per-pair ....
  * key-wise   per-pair per-pair ....
@@ -969,7 +969,7 @@ try_to_play(PluginInstance* plugin, Time current_time, Bool force) // force == F
       MDB(("== Resetting the fork machine (internal %d, input %d)\n",
            machine->internal_queue.length (),
            input_queue.length ()));
-      //machine->state = normal;
+
       change_state(machine,normal);
       machine->verificator = 0;
 
@@ -1012,7 +1012,7 @@ try_to_play(PluginInstance* plugin, Time current_time, Bool force) // force == F
 }
 
 
-/* note: used only in configure.c! 
+/* note: used only in configure.c!
  * Reconsider the events on the `internal' queue.
  * (apparently the criteria/configuration has changed)
  * Reasonable this is in response to a key event. So we are in Final state.
@@ -1056,8 +1056,6 @@ replay_events(PluginInstance* plugin, Time current_time, Bool force)
    machine->state = normal;
    try_to_play(plugin, current_time, force);
 }
-
-
 
 /*
  *  react to some `hot_keys':              this extends  xf86PostKbdEvent
@@ -1313,7 +1311,7 @@ ProcessEvent(PluginInstance* plugin, InternalEvent *event, Bool owner)
 #endif
 };
 
-// this is an internal call. 
+// this is an internal call.
 static void
 step_in_time_locked(PluginInstance* plugin, Time now)
 {
@@ -1535,8 +1533,6 @@ destroy_machine(PluginInstance* plugin)
    MDB(("%s: what to do?\n", __FUNCTION__));
    return 1;
 }
-
-
 
 
 
