@@ -22,16 +22,21 @@
  *  lock is gone!! <- action */
 
 
-/* output Q|   internal Q    | input Q
-   waits for thaw
-              Oxxxxxx          yyyyy
-              ^ forked?
-  We push at the end of input Q.
-  Then we pop from that Q and push on Internal
-  when we determine if forked/non-forked we push
-  on the output Q. At that moment, we also restart:
-  all from internal Q is prepended to the input Q.
-*/
+
+/* This is how it works:
+   We have a `state' and 3 queues:
+
+   output Q  |   internal Q    | input Q
+   waits for |
+   thaw         Oxxxxxx        |  yyyyy
+                ^ forked?
+
+  We push at the end of input Q.  Then we pop from that Q and push on
+  Internal when we determine for 1 event, if forked/non-forked.
+
+  Then we push on the output Q. At that moment, we also restart: all
+  from internal Q is returned/prepended to the input Q.
+  */
 
 
 #include "config.h"
@@ -43,20 +48,21 @@
 
 
 extern "C" {
-#include <X11/X.h>
-#include <X11/Xproto.h>
-#include <X11/keysym.h>
+  // fixme: these are not for the server!
+  //#include <X11/X.h>
+  //#include <X11/Xproto.h>
+  //#include <X11/keysym.h>
 
 /* `probably' I use it only to print out the keysym in debugging stuff*/
 #include <xorg/xkbsrv.h>
-#include <xorg/eventstr.h>
+//#include <xorg/eventstr.h>
 
-#include <stdlib.h>
-#include <ctype.h>
-#include <stdio.h>
-#include <string.h>
+//#include <stdlib.h>
+// #include <ctype.h>
+//#include <stdio.h>
+//#include <string.h>
 
-#include <xkbfile.h>
+// #include <xkbfile.h>
 /* `configuration' .... processing requests: */
 }
 
@@ -523,6 +529,9 @@ time_of_previous_event(machineRec *machine, key_event *handle)
 
 #define suspected_p(k)     (k == suspected)
 
+
+// apply_event_to_{STATE}
+//
 static void
 apply_event_to_verify(machineRec *machine, key_event *handle, PluginInstance* plugin)
 {
@@ -1266,7 +1275,6 @@ ProcessEvent(PluginInstance* plugin, InternalEvent *event, Bool owner)
         }
 #endif
         // assert (!plugin_frozen(next));
-        // memory_balance -= event->any.length;
         PluginClass(next)->ProcessEvent(next, event, owner);
         return;
     };
