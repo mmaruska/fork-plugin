@@ -207,25 +207,9 @@ try_to_output(PluginInstance* plugin)
 
   while ((!plugin_frozen(next)) && (!queue.empty ())) {
     key_event* ev = queue.pop ();
-
     /* fixme: ownership! */
-#if STATIC_LAST
-    machine->last_events[machine->last_head].key = detail_of(ev->event);
-    machine->last_events[machine->last_head].time = time_of(ev->event);
-    machine->last_events[machine->last_head].press = press_p(ev->event);
-    machine->last_events[machine->last_head].forked = ev->forked;
+    machine->last_events->push_back (make_archived_events(ev));
 
-    machine->last_head = (machine->last_head + 1) % machine->max_last;
-#else
-    machine->last_events.push(ev);
-    if (++(machine->last_events_count) > machine->max_last)
-      {
-        /* ok if empty? */
-        key_event* last_ev = machine->last_events.pop();
-        mxfree(last_ev, sizeof(key_event));
-        machine->last_events_count--;
-      }
-#endif
     {
       InternalEvent* event = ev->event;
       mxfree(ev, sizeof(key_event));
@@ -1485,16 +1469,8 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
 
 
    forking_machine->max_last = 100;
-#if STATIC_LAST
-   forking_machine->last_events = (archived_event*) mmalloc(sizeof(archived_event)
-                                                            * forking_machine->max_last);
-   bzero (forking_machine->last_events, sizeof(archived_event) * forking_machine->max_last);
-   forking_machine->last_head = 0;
-#else
-   forking_machine->last_events_count = 0;
-   init_queue(forking_machine->last_events, "last");
-#endif
 
+   forking_machine->last_events = new last_events_type;// bounded_queue<archived_event>;
 
    forking_machine->state = normal;
 
