@@ -13,19 +13,20 @@ extern "C" {
 #include <X11/Xproto.h>
 #include <X11/keysym.h>
 #include <xorg/inputstr.h>
+
+// in C++ it conflicts! (/usr/include/xorg/misc.h vs alorithm)
+#undef max
+#undef min
 };
 
 #include "config.h"
 #include "queue.h"
 #include "fork_requests.h"
+#include "history.h"
 
 using namespace std;
 using namespace __gnu_cxx;
 
-typedef struct {
-  InternalEvent* event;
-  KeyCode forked; /* if forked to (another keycode), this is the original key */
-} key_event;
 
 typedef my_queue<key_event> list_with_tail;
 
@@ -111,13 +112,7 @@ typedef struct machine
   Time time_of_last_output;
 #endif
 
-#if STATIC_LAST  
-  archived_event *last_events;
-  int last_head;
-#else 
-  list_with_tail last_events;
-#endif
-  int last_events_count;
+  last_events_type *last_events;
   int max_last;
 
   fork_configuration  *config;
