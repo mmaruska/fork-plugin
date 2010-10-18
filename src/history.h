@@ -25,12 +25,12 @@ typedef struct {
   KeyCode forked; /* if forked to (another keycode), this is the original key */
 } key_event;
 
-#if 0
+#if 0 // for now from fork_requests.h
 typedef struct
 {
+        time_t time;
         KeyCode key;
         KeyCode forked;
-        time_t time;
         bool press;
 } archived_event;
 #endif

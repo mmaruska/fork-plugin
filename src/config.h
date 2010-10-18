@@ -2,8 +2,7 @@
 #define CONFIG_H
 
 
-// i want the version string settable from the command line!!
-// fixme: if it is not a string it's a segfault !!!
+// I want the version string settable from the command line!!
 #ifndef VERSION_STRING
 #define VERSION_STRING "(unknown version)"
 #endif

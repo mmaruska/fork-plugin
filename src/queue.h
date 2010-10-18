@@ -61,7 +61,7 @@ class my_queue
    bool empty() const;
 
    const T* front () const;
-   T* pop();
+   T* pop();                    // top_and_pop()
 
    void push(T* element);
    void push(const T& value);   // we clone the value!
@@ -99,15 +99,6 @@ template<typename T>
 int my_queue<T>::length () const
 {
   return list.size();
-#if 0
-  typename slist<T*>::iterator i = list.begin();
-  int len = 0;
-  while (i != list.end()) {
-    len++;
-    i++;
-  }
-  return len;
-#endif
 };
 
 template<typename T>
