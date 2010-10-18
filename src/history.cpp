@@ -1,3 +1,7 @@
+/*
+   We want to keep a history (most recent key events):
+*/
+
 #include "config.h"
 #include "debug.h"
 
@@ -5,19 +9,24 @@
 #include "fork.h"
 #include "fork_requests.h"
 
+
 extern "C" {
+#include <xorg-server.h>
+#include <xorg/xkbsrv.h>
+
+
 #include <X11/X.h>
 #include <X11/Xproto.h>
 #include <X11/keysym.h>
 
 /* `probably' I use it only to print out the keysym in debugging stuff*/
-#include <xorg/xkbsrv.h>
 #include <xorg/eventstr.h>
 }
+
 #include "event_ops.h"
 
 
-// fix-size-deque
+
 
 archived_event*
 make_archived_events (key_event* ev)
@@ -33,28 +42,22 @@ make_archived_events (key_event* ev)
 }
 
 
-/* We want to keep a history:
-   We might have a circular-vector to keep the events
-*/
 
-// reallocate 
 int
 machine_set_last_events_count(machineRec* machine, int new_max) // fixme:  lock ??
 {
   DB(("%s: allocating %d events\n",__FUNCTION__, new_max));
 
-  /*   XXXXXXXX. YYYYYYYYYYYYY
-   * ->  YYYYYYYYYYYYY XXXXXXXXX.
-   *
-   *   */
-  //  archived_event* newl = (archived_event*)
-  //      mmalloc(sizeof(archived_event) * new_max);
-   
-  // fixme!
-  // do the resize
-  // machine->last_events = newl;
-  // machine->max_last = new_max;
-   
+  if (machine->max_last > new_max)
+    {
+      // shrink. to be done in the circular.h!
+    }
+  else
+    {
+      machine->last_events->reserve(new_max);
+    }
+
+  machine->max_last = new_max;
   return 0;
 }
 
@@ -78,13 +81,13 @@ dump_last_events_to_client(PluginInstance* plugin, ClientPtr client, int n)
    if (queue_count > machine->max_last)
       queue_count = machine->max_last;
 #endif
-   
+
    // how many in the store?
    // upper bound
    if (n > queue_count) {
       n =  queue_count;
    };
-      
+
    // allocate the appendix buffer:
    int appendix_len = sizeof(fork_events_reply) + (n * sizeof(archived_event));
    /* no alignment! */
@@ -92,7 +95,7 @@ dump_last_events_to_client(PluginInstance* plugin, ClientPtr client, int n)
    /* fork_events_reply; */
 
 #if 0 /* useless? */
-   int remainder = appendix_len  % 4; 
+   int remainder = appendix_len  % 4;
    appendix_len += (remainder?(4 - remainder):0);
 /* endi */
 #endif
@@ -100,12 +103,12 @@ dump_last_events_to_client(PluginInstance* plugin, ClientPtr client, int n)
 
    char *start;
    fork_events_reply* buf;
-   
+
    start = (char *)alloca(appendix_len);
    buf = (fork_events_reply*) start;
 
    buf->count = n;              /* fixme: BYTE SWAP if needed! */
-   
+
 #if 0
    // fixme: we need to increase an iterator .. pointer .... to the C array!
    last_events.for_each(
@@ -123,14 +126,13 @@ dump_last_events_to_client(PluginInstance* plugin, ClientPtr client, int n)
 }
 
 
-// output to stderr.
+// prints in the Xorg.n.log
 static void
 dump_event(KeyCode key, KeyCode fork, bool press, Time event_time, XkbDescPtr xkb,
 	   XkbSrvInfoPtr xkbi, Time prev_time)
 {
-#if 0
     char* ksname = xkb->names->keys[key].name;
-    ErrorF("%d %d %.4s\n",i, key, ksname);
+    ErrorF("%d %.4s\n", key, ksname);
 
     // 0.1   keysym bound to the key:
     KeySym* sym= XkbKeySymsPtr(xkbi->desc,key); // mmc: is this enough ?
@@ -148,7 +150,6 @@ dump_event(KeyCode key, KeyCode fork, bool press, Time event_time, XkbDescPtr xk
 	    sname = keysymname;
 	};
     };
-
     /*  Format:
 	keycode
 	press/release
@@ -158,44 +159,54 @@ dump_event(KeyCode key, KeyCode fork, bool press, Time event_time, XkbDescPtr xk
 
     ErrorF("%s %d (%d)" ,(press?" ]":"[ "),
 	   (int)key, (int) fork);
-    ErrorF(" %.4s (%5.5s) %d\t%d\n",
+    ErrorF(" %.4s (%5.5s) %lu\t%lu\n",
 	   ksname, sname,
 	   event_time,
 	   event_time - prev_time);
-
-#endif
 }
 
 
+// Closure
+class event_dumper
+{
+private:
+  DeviceIntPtr keybd;
+  XkbSrvInfoPtr xkbi;
+  XkbDescPtr xkb;
+
+  int index;
+  Time previous_time;
+
+public:
+  void operator() (archived_event*& event)
+  {
+    dump_event(event->key,
+               event->forked,
+               event->press,
+               event->time,
+               xkb, xkbi, previous_time);
+    previous_time = event->time;
+  };
 
 
-/* dump on the stderr of the X server. */
-/* todo: if i had  machine-> plugin pointer.... */
+  event_dumper(PluginInstance* plugin, int i = 0) : index(i), previous_time(0)
+  {
+    keybd = plugin->device;
+    xkbi = keybd->key->xkbInfo;
+    xkb = xkbi->desc;
+  };
+};
+
+
 void
 dump_last_events(PluginInstance* plugin)
 {
-   machineRec* machine = plugin_machine(plugin);
+  machineRec* machine = plugin_machine(plugin);
+  ErrorF("%s(%s) %d\n",__FUNCTION__, plugin->device->name,
+         machine->last_events->size());
 
-   // stuff needed in the `while'  cycle:
-   DeviceIntPtr keybd = plugin->device;
-   XkbSrvInfoPtr xkbi= keybd->key->xkbInfo;
-   XkbDescPtr xkb = xkbi->desc;
-
-   MDB(("%s start\n",__FUNCTION__));
-
-#if 0
-            dump_event(event->key,
-                    event->forked,
-                    event->press,
-                    event->time,
-                    xkb, xkbi, previous_time);
-
-   // fixme: we need to increase an iterator .. pointer .... to the C array!
-   last_events.for_each(
-                        begin(),
-                        end(),
-                        function);
-#endif
-
-   ErrorF("%s end\n",__FUNCTION__);
+  event_dumper function(plugin);
+  for_each(machine->last_events->begin(),
+           machine->last_events->end(),
+           function);
 }
