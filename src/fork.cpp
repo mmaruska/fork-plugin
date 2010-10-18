@@ -3,12 +3,21 @@
  * License:  Creative Commons Attribution-ShareAlike 3.0 Unported License
  */
 
-// todo:  "%lu" on 32bit!
-#define TIME_FMT  "%u"
-
-
-
 #define USE_LOCKING 1
+
+// what does the lock protect?
+// mouse signal handler cannot just make "fork", while a key event is being analyzed.
+
+#if USE_LOCKING
+#define CHECK_LOCKED(m) assert(m->lock)
+#define CHECK_UNLOCKED(m) assert(m->lock == 0)
+#define LOCK(m)  m->lock=1
+#define UNLOCK(m)  m->lock=0
+#else
+#error "define locking macros!"
+#endif
+
+
 /* Locking is broken: but it's not used now:
  *
  *   ---> keyevent ->  xkb action -> mouse
@@ -48,23 +57,12 @@
 
 
 extern "C" {
-  // fixme: these are not for the server!
-  //#include <X11/X.h>
-  //#include <X11/Xproto.h>
-  //#include <X11/keysym.h>
-
-/* `probably' I use it only to print out the keysym in debugging stuff*/
+/* I use it only to print out the keysym in debugging stuff*/
 #include <xorg/xkbsrv.h>
-//#include <xorg/eventstr.h>
-
-//#include <stdlib.h>
-// #include <ctype.h>
-//#include <stdio.h>
-//#include <string.h>
-
-// #include <xkbfile.h>
-/* `configuration' .... processing requests: */
 }
+
+/*  Functions on xEvent */
+#include "event_ops.h"
 
 
 // fork_reason
@@ -115,8 +113,6 @@ const char* event_names[] = {
  */
 size_t memory_balance = 0;
 
-/*  Functions on xEvent */
-#include "event_ops.h"
 
 
 inline Bool
@@ -137,8 +133,8 @@ describe_key(DeviceIntPtr keybd, InternalEvent *event)
     static char buffer[BufferLength];
     XkbSrvInfoPtr xkbi= keybd->key->xkbInfo;
     KeyCode key = detail_of(event);
-    char* keycode_name = xkbi->desc->names->keys[key].name;
     // assert(0 <= key <= (max_key_code - min_key_code));
+    char* keycode_name = xkbi->desc->names->keys[key].name;
 
     const KeySym *sym= XkbKeySymsPtr(xkbi->desc,key);
     if ((!sym) || (! isalpha(*(unsigned char*)sym)))
@@ -193,9 +189,8 @@ static void
 try_to_output(PluginInstance* plugin)
 {
   machineRec* machine = plugin_machine(plugin);
-#if USE_LOCKING
-  assert(machine->lock);
-#endif
+
+  CHECK_LOCKED(machine);
 
   list_with_tail &queue = machine->output_queue;
   PluginInstance* next = plugin->next;
@@ -206,18 +201,15 @@ try_to_output(PluginInstance* plugin)
        machine->input_queue.length ()));
 
   while ((!plugin_frozen(next)) && (!queue.empty ())) {
-    key_event* ev = queue.pop ();
-    /* fixme: ownership! */
-    machine->last_events->push_back (make_archived_events(ev));
+      key_event* ev = queue.pop();
 
-    {
+      machine->last_events->push_back(make_archived_events(ev));
       InternalEvent* event = ev->event;
       mxfree(ev, sizeof(key_event));
 
-      machine->lock = 0;
+      UNLOCK(machine);
       hand_over_event_to_next_plugin(event, plugin);
-      machine->lock = 1;
-    }
+      LOCK(machine);
   };
   if (!plugin_frozen(next) && (!queue.empty ())){
     MDB(("%s: still %d events to output\n", __FUNCTION__, queue.length ()));
@@ -735,7 +727,7 @@ apply_event_to_normal(machineRec *machine, key_event *handle, PluginInstance* pl
     KeyCode key = detail_of(event);
     Time simulated_time = time_of(event);
 
-    fork_configuration* config = machine->config;    // todo: reference, not pointer.
+    fork_configuration* config = machine->config;
 
     /* "closure":  When we press a key the second time in a row, we might avoid forking:
      * So, this is for the detector:
@@ -1021,7 +1013,7 @@ void
 replay_events(PluginInstance* plugin, Time current_time, Bool force)
 {
    machineRec* machine= plugin_machine(plugin);
-   assert (machine->lock);
+   CHECK_LOCKED(machine);
 
    MDB(("%s\n", __FUNCTION__));
 
@@ -1057,124 +1049,129 @@ replay_events(PluginInstance* plugin, Time current_time, Bool force)
    try_to_play(plugin, current_time, force);
 }
 
+
 /*
- *  react to some `hot_keys':              this extends  xf86PostKbdEvent
+ *  react to some `hot_keys':
+ *  Pause  Pause  -> dump
  */
-inline
-int                             // return:  0  nothing  -1  skip it
+
+int                      // return, if config-mode continues.
 filter_config_key(PluginInstance* plugin,const InternalEvent *event)
 {
-   static unsigned char config_mode = 0;
-   // != 0   while the Pause key is down, i.e. we are configuring keys:
-   static KeyCode key_to_fork = 0;         //  what key we want to configure?
-   static Time last_press_time = 0;
-   static int latch = 0;
+    static KeyCode key_to_fork = 0;         //  what key we want to configure?
 
-   if (config_mode){
-      ErrorF("config_mode\n");
-      //   Pause  Pause  -> dump
-      //   Pause a shit   ->
-
-
-      // [21 ott 04]  i admit, that some (non-plain ps/2) keyboard generate
-      // the release event at the same time as press
-      // So, to overcome this limitation, i detect this short-lasting `down' &
-      // take the `next' event as in `config_mode'
-
-      if ((detail_of(event) == PAUSE_KEYCODE) && release_p(event)){ //  fake ?
-         if ( (time_of(event) - last_press_time) < 30) // fixme: configurable!
-            {
-               ErrorF("the key seems buggy, tolerating %d: %d! .. & latching config mode\n",
-		      time_of(event), (int)(time_of(event) - last_press_time));
-               latch = 1;
-               return -1;
-            }
-         config_mode = 0;
-         key_to_fork = 0;       // forget ...
-         ErrorF("dumping %d: %d!\n", time_of(event), (int)(time_of(event) -
-                                                           last_press_time));
-         if (1)                   // nothing configured
-            // todo: send a message to listening clients.
-            dump_last_events(plugin);
-      } else {
-         last_press_time = 0;
-
-         if (latch) {
-            config_mode = latch = 0;
-         };
-
-         if (press_p(event))
-	     switch (detail_of(event)) {
+    if (press_p(event))
+        switch (detail_of(event)) {
             case 110:
             {
-               machineRec* machine = plugin_machine(plugin);
-               machine->lock = 1;
-               dump_last_events(plugin);
-               machine->lock = 0;
-               break;
+                machineRec* machine = plugin_machine(plugin);
+                LOCK(machine);
+                dump_last_events(plugin);
+                UNLOCK(machine);
+                break;
             }
 
             case 19:
             {
-               machineRec* machine = plugin_machine(plugin);
-               machine->lock = 1;
-               machine_switch_config(plugin, machine,0); // current ->toggle ?
-               machine->lock = 0;
+                machineRec* machine = plugin_machine(plugin);
+                LOCK(machine);
+                machine_switch_config(plugin, machine,0); // current ->toggle ?
+                UNLOCK(machine);
 
-               /* fixme: but this is default! */
-               machine->forkActive[detail_of(event)] = 0; /* ignore the release as well. */
-               break;
+                /* fixme: but this is default! */
+                machine->forkActive[detail_of(event)] = 0; /* ignore the release as well. */
+                break;
             }
 
             // 1
             case 10:
             {
-               machineRec* machine = plugin_machine(plugin);
+                machineRec* machine = plugin_machine(plugin);
 
-               machine->lock = 1;
-               machine_switch_config(plugin, machine,1); // current ->toggle ?
-               machine->lock = 0;
-               machine->forkActive[detail_of(event)] = 0;
-               break;
+                LOCK(machine);
+                machine_switch_config(plugin, machine,1); // current ->toggle ?
+                UNLOCK(machine);
+                machine->forkActive[detail_of(event)] = 0;
+                break;
             }
 
             default:            /* todo: remove this! */
             {
-               if (key_to_fork == 0){
-                  key_to_fork = detail_of(event);
-               } else {
-                  machineRec* machine = plugin_machine(plugin);
-                  machine->config->fork_keycode[key_to_fork] = detail_of(event);
-                  key_to_fork = 0;
-               }
+                if (key_to_fork == 0){
+                    key_to_fork = detail_of(event);
+                } else {
+                    machineRec* machine = plugin_machine(plugin);
+                    machine->config->fork_keycode[key_to_fork] = detail_of(event);
+                    key_to_fork = 0;
+                }
             }};
 #if 0
-         register BYTE   *kptr;
-         KeyCode key = detail_of(event);
-         int             bit;      // why not BYTE ??
-         kptr = &keybd->key->down[key >> 3];
-         bit = 1 << (key & 7);
+    register BYTE   *kptr;
+    KeyCode key = detail_of(event);
+    int             bit;      // why not BYTE ??
+    kptr = &keybd->key->down[key >> 3];
+    bit = 1 << (key & 7);
 
-         if release_p(event)
-                        *kptr &= ~bit;          // clear
-         else *kptr |= bit;
+    if release_p(event)
+                    *kptr &= ~bit;          // clear
+    else *kptr |= bit;
 #endif
-         return -1;
-      }
-   }
+    return -1;
+}
 
-   // `Dump'
-   if ((detail_of(event) == PAUSE_KEYCODE) && press_p(event))
-       /* wait for the next and act ? but start w/ printing the last events: */
-      {
-         last_press_time = time_of(event);
-         ErrorF("entering config_mode & discarding the event: %u!\n", last_press_time);
-         config_mode = 1;
-         /* fixme: should I update the ->down bitarray? */
-         return -1;
-      } else
-         last_press_time = 0;
-   return 0;
+
+inline
+int                             // return:  0  nothing  -1  skip it
+filter_config_key_maybe(PluginInstance* plugin,const InternalEvent *event)
+{
+    static unsigned char config_mode = 0; // While the Pause key is down.
+    static Time last_press_time = 0;
+
+    if (config_mode)
+    {
+        static int latch = 0;
+        // [21/10/04]  I noticed, that some (non-plain ps/2) keyboard generate
+        // the release event at the same time as press.
+        // So, to overcome this limitation, I detect this short-lasting `down' &
+        // take the `next' event as in `config_mode'   (latch)
+
+        if ((detail_of(event) == PAUSE_KEYCODE) && release_p(event)) { //  fake ?
+            if ( (time_of(event) - last_press_time) < 30) // fixme: configurable!
+            {
+                ErrorF("the key seems buggy, tolerating %d: %d! .. & latching config mode\n",
+                       time_of(event), (int)(time_of(event) - last_press_time));
+                latch = 1;
+                return -1;
+            }
+            config_mode = 0;
+            // fixme: key_to_fork = 0;
+            ErrorF("dumping (%s) %d: %d!\n",
+                   plugin->device->name,
+                   time_of(event), (int)(time_of(event) - last_press_time));
+            // todo: send a message to listening clients.
+            dump_last_events(plugin);
+        }
+        else {
+            last_press_time = 0;
+            if (latch) {
+                config_mode = latch = 0;
+            };
+            config_mode = filter_config_key (plugin, event);
+        }
+    }
+    // `Dump'
+    if ((detail_of(event) == PAUSE_KEYCODE) && press_p(event))
+        /* wait for the next and act ? but start w/ printing the last events: */
+    {
+        last_press_time = time_of(event);
+        ErrorF("entering config_mode & discarding the event: %u!\n", last_press_time);
+        config_mode = 1;
+
+        /* fixme: should I update the ->down bitarray? */
+        return -1;
+    } else
+        last_press_time = 0;
+    return 0;
 }
 
 
@@ -1183,9 +1180,7 @@ static void
 set_wakeup_time(PluginInstance* plugin, Time now)
 {
    machineRec* machine = plugin_machine(plugin);
-#if USE_LOCKING
-   assert(machine->lock);
-#endif
+   CHECK_LOCKED(machine);
    plugin->wakeup_time = (machine->time_left) ? machine->time_left + now:
        (machine->internal_queue.empty())? plugin->next->wakeup_time:0;
 
@@ -1240,6 +1235,7 @@ ProcessEvent(PluginInstance* plugin, InternalEvent *event, Bool owner)
 {
     DeviceIntPtr keybd = plugin->device;
     Time now = time_of(event);
+
 #define ONLY_PRESS_RELEASE 0
 
 #if ONLY_PRESS_RELEASE
@@ -1256,26 +1252,25 @@ ProcessEvent(PluginInstance* plugin, InternalEvent *event, Bool owner)
             DB(("%s\n", color_reset));
         }
 #endif
-        // assert (!plugin_frozen(next));
+                // assert (!plugin_frozen(next));
         PluginClass(next)->ProcessEvent(next, event, owner);
         return;
     };
 #endif  // ONLY_PRESS_RELEASE
 
-    if (filter_config_key(plugin, event) < 0)
+
+
+    if (filter_config_key_maybe(plugin, event) < 0)
     {
         if (owner)
             xfree(event);
         // fixme: i should at least push the time of ->next!
         return;
     };
-
-
     machineRec* machine = plugin_machine(plugin);
-#if USE_LOCKING
-    assert(machine->lock == 0);
-    machine->lock = 1;           // fixme: mouse must not interrupt us.
-#endif
+
+    CHECK_UNLOCKED(machine);
+    LOCK(machine);           // fixme: mouse must not interrupt us.
 
     key_event* handle = create_handle_for_event(event, owner);
     if (!handle)			// memory problems
@@ -1306,37 +1301,35 @@ ProcessEvent(PluginInstance* plugin, InternalEvent *event, Bool owner)
     // fixme: we should take NOW better?
     set_wakeup_time(plugin, now);
     // if internal & output queue is empty
-#if USE_LOCKING
-    machine->lock = 0;
-#endif
+    UNLOCK(machine);
 };
 
 // this is an internal call.
 static void
 step_in_time_locked(PluginInstance* plugin, Time now)
 {
-  machineRec* machine = plugin_machine(plugin);
-  MDB(("%s:\n", __FUNCTION__));
+    machineRec* machine = plugin_machine(plugin);
+    MDB(("%s:\n", __FUNCTION__));
 
-  /* is this necessary?   I think not: if the next plugin was frozen,
-   * and now it's not, then it must have warned us that it thawed */
-  try_to_output(plugin);
+    /* is this necessary?   I think not: if the next plugin was frozen,
+     * and now it's not, then it must have warned us that it thawed */
+    try_to_output(plugin);
 
-  /* push the time ! */
-  try_to_play(plugin, now, FALSE);
+    /* push the time ! */
+    try_to_play(plugin, now, FALSE);
 
-  /* i should take the minimum of time and the time of the 1st event in the
-     (output) internal queue */
-  if (machine->internal_queue.empty() && machine->input_queue.empty()
-      && !plugin_frozen(plugin->next))
+    /* i should take the minimum of time and the time of the 1st event in the
+       (output) internal queue */
+    if (machine->internal_queue.empty() && machine->input_queue.empty()
+        && !plugin_frozen(plugin->next))
     {
-      machine->lock = 0;
-      /* might this be invoked several times?  */
-      PluginClass(plugin->next)->ProcessTime(plugin->next, now);
-      machine->lock = 1;
+        UNLOCK(machine);
+        /* might this be invoked several times?  */
+        PluginClass(plugin->next)->ProcessTime(plugin->next, now);
+        UNLOCK(machine);
     }
-  // todo: we could push the time before the first event in internal queue!
-  set_wakeup_time(plugin, now);
+    // todo: we could push the time before the first event in internal queue!
+    set_wakeup_time(plugin, now);
 }
 
 // external API
@@ -1345,9 +1338,9 @@ step_in_time(PluginInstance* plugin, Time now)
 {
    machineRec* machine = plugin_machine(plugin);
    MDB(("%s:\n", __FUNCTION__));
-   machine->lock = 1;
+   LOCK(machine);
    step_in_time_locked(plugin, now);
-   machine->lock = 0;
+   UNLOCK(machine);
 };
 
 
@@ -1358,7 +1351,7 @@ fork_thaw_notify(PluginInstance* plugin, Time now)
   machineRec* machine = plugin_machine(plugin);
   MDB(("%s @ time %u\n", __FUNCTION__, (int)now));
 
-  machine->lock = 1;
+  LOCK(machine);
   /* try_to_output(plugin); */
   // this does not hurt, but is it useless?
   step_in_time_locked(plugin, now);
@@ -1367,7 +1360,8 @@ fork_thaw_notify(PluginInstance* plugin, Time now)
     {
       /* thaw the previous! */
       set_wakeup_time(plugin, now);
-      machine->lock = 0;
+      UNLOCK(machine);
+
       MDB(("%s -- sending thaw Notify upwards!\n", __FUNCTION__));
       /* fixme:  Tail-recursion! */
       PluginClass(plugin->prev)->NotifyThaw(plugin->prev, now);
@@ -1375,7 +1369,7 @@ fork_thaw_notify(PluginInstance* plugin, Time now)
     } else {
     MDB(("%s -- NOT sending thaw Notify upwards %s!\n", __FUNCTION__,
          plugin_frozen(plugin)?"next is frozen":"prev has not NotifyThaw"));
-    machine->lock = 0;
+    UNLOCK(machine);
   }
 }
 
@@ -1386,27 +1380,22 @@ mouse_call_back(CallbackListPtr *, PluginInstance* plugin,
                 DeviceEventInfoRec* dei)
 {
    InternalEvent *event = dei->event;
-#if USE_LOCKING
    machineRec* machine = plugin_machine(plugin);
-   assert(machine->lock == 0);
-   machine->lock = 1;
-#endif
+
    if (event->any.type == ET_Motion)
       {
-         if (plugin_machine(plugin) -> lock)
+         if (machine->lock)
             ErrorF("%s running, while the machine is locked!\n", __FUNCTION__);
          /* else */
+         LOCK(machine);
          step_fork_automaton_by_force(plugin_machine(plugin), plugin);
+         UNLOCK(machine);
       }
-#if USE_LOCKING
-   machine->lock = 0;
-#endif
 }
 
 
-/* we have to make a (new) automaton: allocate default config,
- * register hooks to other devices?
- * prepare timer?
+/* We have to make a (new) automaton: allocate default config,
+ * register hooks to other devices,
  *
  * returns: erorr of Success. Should attach stuff by side effect ! */
 static PluginInstance*
@@ -1419,7 +1408,7 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
    plugin->pclass = plugin_class;
    plugin->device = keybd;
 
-   machineRec* forking_machine;
+   machineRec* forking_machine = NULL;
 
    /* ErrorF("%s: got %d sizeof: %d %d\n", __FUNCTION__, (int) keybd->plugin->handle,
     * sizeof(DeviceIntRec_plugin), sizeof(DeviceIntRec)); */
@@ -1438,20 +1427,20 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
    if (!config)
       {
          free (config_no_fork);
-         /* free (forking_machine); */
          return NULL;              // BadAlloc
       }
 
    config->next = config_no_fork;
    // config->id = config_no_fork->id + 1;
-   // so we start w/ config 1. 0 is empty and should not be modifyable
+   // so we start w/ config 1. 0 is empty and should not be modifiable
 
 
-   // i should use  cout <<  to avoid the segfault if something is not a string.
+   // I should use  cout <<  to avoid the segfault if something is not a string.
+   // How to check at compile time?
    ErrorF("%s: constructing the machine %d (official release: %s)\n",
 	  __FUNCTION__, PLUGIN_VERSION, VERSION_STRING);
 
-   /* state: */
+
    forking_machine =  (machineRec* )mmalloc(sizeof(machineRec));
    bzero(forking_machine, sizeof (machineRec));
 
@@ -1459,20 +1448,20 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
       ErrorF("%s: malloc failed (for forking_machine)\n",__FUNCTION__);
       return NULL;              // BadAlloc
    }
-   // now, if something goes wrong, we have to free it!!
 
+
+   // now, if something goes wrong, we have to free it!!
    forking_machine->internal_queue.set_name("internal");
    forking_machine->input_queue.set_name("input");
    forking_machine->output_queue.set_name("output");
 
 
    forking_machine->max_last = 100;
-
-   forking_machine->last_events = new last_events_type;// bounded_queue<archived_event>;
+   forking_machine->last_events = new last_events_type(forking_machine->max_last);
 
    forking_machine->state = normal;
 
-   forking_machine->lock = 0;
+   UNLOCK(forking_machine);
    forking_machine->time_left = 0;
 
 
@@ -1497,10 +1486,7 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
    plugin->data = (void*) forking_machine;
    ErrorF("%s: returning %d\n", __FUNCTION__, Success);
 
-#if 1
    AddCallback(&DeviceEventCallback, (CallbackProcPtr) mouse_call_back, (void*) plugin);
-#endif
-
 
    plugin_class->ref_count++;
    return plugin;
@@ -1513,8 +1499,7 @@ static int
 stop_and_exhaust_machine(PluginInstance* plugin)
 {
   machineRec* machine = plugin_machine(plugin);
-  machine->lock = 1;
-
+  LOCK(machine);
   MDB(("%s: what to do?\n", __FUNCTION__));
   // free all the stuff, and then:
   xkb_remove_plugin (plugin);
@@ -1526,7 +1511,7 @@ static int
 destroy_machine(PluginInstance* plugin)
 {
    machineRec* machine = plugin_machine(plugin);
-   machine->lock = 1;
+   LOCK(machine);
 
    DeleteCallback(&DeviceEventCallback, (CallbackProcPtr) mouse_call_back,
                   (void*) plugin);
