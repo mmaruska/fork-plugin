@@ -19,13 +19,17 @@
 #  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
+# Changed by: Michal Maruska (C) 2010
+
+
+
 # this is obnoxious:
 # -module lets us name the module exactly how we want
 # -avoid-version prevents gratuitous .0.0.0 version numbers on the end
 # _ladir passes a dummy rpath to libtool so the thing will actually link
 # TODO: -nostdlib/-Bstatic/-lgcc platform magic, not installing the .a, etc.
 @DRIVER_NAME@_la_LTLIBRARIES = @DRIVER_NAME@.la
-@DRIVER_NAME@_la_LDFLAGS = -module -avoid-version
+@DRIVER_NAME@_la_LDFLAGS = -module -avoid-version --no-export-dynamic
 @DRIVER_NAME@_ladir = /usr/lib/modules/xkb-plugins/
 # @inputdir@
 
