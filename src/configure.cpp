@@ -1,4 +1,5 @@
 
+// in this file: processing X11 requests to configure the plugin.
 
 #include "config.h"
 #include "debug.h"
@@ -9,12 +10,15 @@
 #include "history.h"
 
 /* something to define NULL */
+extern "C"
+{
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <xorg/misc.h>
+}
 
-//   
+//
 //  pointer->  |  next|-> |   next| ->
 //    ^            ^
 //    |    or      |
@@ -24,7 +28,7 @@ static fork_configuration**
 find_before_n(machineRec* machine, int n)
 {
     fork_configuration** config_p = &(machine->config);
-   
+
     while (((*config_p)->next) && ((*config_p)->id != n))
     {
         ErrorF("%s skipping over %d\n", __FUNCTION__, (*config_p)->id);
@@ -46,7 +50,7 @@ machine_switch_config(PluginInstance* plugin, machineRec* machine,int id)
     ErrorF("%s found\n", __FUNCTION__);
 
     // fixme:   `move_to_top'   find an element in a linked list, and move it to the head.
-    /*if (config->id == id)   
+    /*if (config->id == id)
       no need for replay!
     */
 
@@ -87,22 +91,22 @@ static int config_counter = 0;
 
 // nothing active (forkable) in this configuration
 fork_configuration*
-machine_new_config(void) 
+machine_new_config(void)
 {
-   fork_configuration* config;      
-   
+   fork_configuration* config;
+
    /* `configuration' */
    ErrorF("resetting the configuration to defaults\n");
    config = MALLOC(fork_configuration);
 
-   
+
    if (! config){
       ErrorF("%s: malloc failed (for config)\n", __FUNCTION__);
       /* fixme: should free the machine!!! */
       /* in C++ exception which calls all destructors (of the objects on the stack ?? */
       return NULL;
    }
-   
+
    config->repeat_max = 80;
    config->consider_forks_for_repeat = TRUE;
    config->debug = 1;        //  2
@@ -123,10 +127,10 @@ machine_new_config(void)
    }
    /* ms: could be XkbDfltRepeatDelay */
 
-   config->verification_interval[0][0] = 200; 
+   config->verification_interval[0][0] = 200;
    config->overlap_tolerance[0][0] = 100;
    ErrorF("fork: init arrays .... done\n");
-   
+
 
    config->name = "default";
    config->id = config_counter++;
