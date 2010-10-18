@@ -1,71 +1,31 @@
--*-outline-*-
 
-* If the lower level driver gives us an auto-repeated press:
+This is a plugin for an alternative (pipeline) architecture of
+key-event processing in Xorg server.
 
-1 st press -> fork
-2 nd press  -> somehow does not repeat
-   release -> release the fork ?
+The patch for this is currently available as a debian package.
+   https://launchpad.net/~mmaruska/+archive/mmc-pipeline
+(This plugin is available there too, but this git repo is updated).
 
-   
-
-
-
-DeviceIntPtr  ->    _DeviceIntRec
-
-
-Device ->    local =  (pinfo)
-               |
-               v
-             driver  -> module
+There is some explanation of what this plugin does at:
+http://www.ruska.it/michal/fork.html
 
 
 
 
+Implementation:
+
+We are called through these calls:
+
+- ProcessEvent
+- mouse_call_back
+- step_in_time  (...We provide the time at which we want to be woken)
+
+
+We look at the Parallelism of key strokes (also mouse movement parallelism)
+and can change some Events (the keycode).
 
 
 
+There is also synchronization with device Freeze/Thaw.
+- fork_thaw_notify
 
-* xc/programs/Xserver/include/inputstr.h
-    init of the data:
-  xc/programs/Xserver/dix/devices.c
-
-
-* xc/programs/Xserver/xkb/xkb.c
-     requests to load the plugin
-   and  (try to) process unknown requests !!!
-      
-*  xc/programs/Xserver/xkb/xkbPrKeyEv.c
-        pushing 'normal' events to the plugin
-
-* /usr/X11R6/include/X11/extensions/XKBsrv.h
-        
-
-
-
-*btw.  key-repeat:
-
-* xc/programs/Xserver/xkb/xkbAccessX.c
-* xc/include/extensions/XKBsrv.h
-
-
-
-
-* Installing:
-i had to:
-make install.sdk
-
-
-for the xkb-tools:
-cp xc/lib/X11/XKBlibint.h  /usr/X11R6/include/X11/ 
-
-
-
-
-
-
-
-
-
-/* all the include files are intended for C, so:   i still had to modify them,
-   "class" and "public"
-   are keywords in C++*/
