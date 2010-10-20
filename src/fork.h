@@ -151,7 +151,6 @@ void* mmalloc(size_t size)
     {
       memory_balance += size;
       if (memory_balance > sizeof(machineRec) + sizeof(PluginInstance) + 2000)
-        /* machine->max_last * sizeof() */
         ErrorF("%s: memory_balance = %ld\n", __FUNCTION__, memory_balance);
     }
   return p;

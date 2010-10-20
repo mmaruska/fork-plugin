@@ -4,9 +4,8 @@
  */
 
 #define USE_LOCKING 1
-
-/* what does the lock protect?  ... access to the  queues,state
- *  mouse signal handler cannot just make "fork", while a key event is being analyzed.
+/* What does the lock protect?  ... access to the  queues,state
+ * mouse signal handler cannot just make "fork", while a key event is being analyzed.
  */
 
 #if USE_LOCKING
@@ -117,7 +116,6 @@ const char* event_names[] = {
 size_t memory_balance = 0;
 
 
-
 inline Bool
 forkable_p(fork_configuration* config, KeyCode code)
 {
@@ -127,7 +125,7 @@ forkable_p(fork_configuration* config, KeyCode code)
 
 const int BufferLength = 200;
 
-/* the returned string is in static space. Don't free it! */
+/* The returned string is in static space. Don't free it! */
 static const char*
 describe_key(DeviceIntPtr keybd, InternalEvent *event)
 {
@@ -912,6 +910,17 @@ step_fork_automaton_by_key(machineRec *machine, key_event *ev, PluginInstance* p
 
 #define final_p(state)  ((state == st_deactivated) || (state == st_activated))
 
+void
+reverse_slice(list_with_tail &pre, list_with_tail &post)
+{
+    // Slice with a reversed semantic:
+    // A.slice(B) --> ()  (AB)
+    // traditional is (AB) ()
+    pre.slice(post);
+    pre.swap(post);
+}
+
+
 /* Take from input_queue, + the current_time + force   -> run the machine.
  * After that you have to:   cancel the timer!!!
  */
@@ -943,13 +952,8 @@ try_to_play(PluginInstance* plugin, Time current_time, Bool force) // force == F
       machine->verificator = 0;
 
       if (!(machine->internal_queue.empty())) {
-        // Slice with a reversed semantic:
-        // A.slice(B) --> ()  (AB)
-        // traditional is (AB) ()
-        machine->internal_queue.slice(input_queue);
-        machine->internal_queue.swap(input_queue);
-
-        MDB(("now in input_queue: %d\n", input_queue.length ()));
+          reverse_slice(machine->internal_queue, input_queue);
+          MDB(("now in input_queue: %d\n", input_queue.length ()));
       }
     };
 
@@ -997,8 +1001,7 @@ replay_events(PluginInstance* plugin, Time current_time, Bool force)
 
     if (!machine->internal_queue.empty())
     {
-        machine->internal_queue.slice (machine->input_queue);
-        machine->internal_queue.swap(machine->input_queue);
+        reverse_slice (machine->internal_queue, input_queue)
     }
 
     machine->state = st_normal;
