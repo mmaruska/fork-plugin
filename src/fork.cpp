@@ -67,60 +67,52 @@ extern "C" {
 #include "event_ops.h"
 
 
-/* fork_reason */
+/* How we decided for the fork */
 enum {
-  reason_total,
-  reason_overlap,
-  reason_force
+    reason_total,               // key pressed too long
+    reason_overlap,             // key press overlaps with another key
+    reason_force                // mouse-button was pressed & triggered fork.
 };
 
 /* used only for debugging */
 char const *state_description[]={
-  "normal",
-  "suspect",
-  "verify",
-  "deactivated",
-  "activated"
+    "normal",
+    "suspect",
+    "verify",
+    "deactivated",
+    "activated"
 };
 
+// is it available from somewhere else?
 const char* event_names[] = {
-  "KeyPress",
-  "KeyRelease",
-  "ButtonPress",
-  "ButtonRelease",
-  "Motion",
-  "Enter",
-  "Leave",
-  // 9
-  "FocusIn",
-  "FocusOut",
-  "ProximityIn",
-  "ProximityOut",
-  // 13
-  "DeviceChanged",
-  "Hierarchy",
-  "DGAEvent",
-  // 16
-  "RawKeyPress",
-  "RawKeyRelease",
-  "RawButtonPress",
-  "RawButtonRelease",
-  "RawMotion",
-  "XQuartz"
+    "KeyPress",
+    "KeyRelease",
+    "ButtonPress",
+    "ButtonRelease",
+    "Motion",
+    "Enter",
+    "Leave",
+    // 9
+    "FocusIn",
+    "FocusOut",
+    "ProximityIn",
+    "ProximityOut",
+    // 13
+    "DeviceChanged",
+    "Hierarchy",
+    "DGAEvent",
+    // 16
+    "RawKeyPress",
+    "RawKeyRelease",
+    "RawButtonPress",
+    "RawButtonRelease",
+    "RawMotion",
+    "XQuartz"
 };
 
 
-/* memory problems:
- *     machine->previous_event
- */
+/* memory problems tracking: (used with mxfree & mmalloc) I observe this value. */
 size_t memory_balance = 0;
-
-
-inline Bool
-forkable_p(fork_configuration* config, KeyCode code)
-{
-   return (config->fork_keycode[code]);
-}
 
 
 const int BufferLength = 200;
@@ -154,12 +146,12 @@ describe_key(DeviceIntPtr keybd, InternalEvent *event)
 static const char*
 describe_machine_state(machineRec* machine)
 {
-   static char buffer[BufferLength];
+    static char buffer[BufferLength];
 
-   snprintf(buffer, BufferLength, "%s[%dm%s%s",
-            escape_sequence, 32 + machine->state,
-            state_description[machine->state], color_reset);
-   return buffer;
+    snprintf(buffer, BufferLength, "%s[%dm%s%s",
+             escape_sequence, 32 + machine->state,
+             state_description[machine->state], color_reset);
+    return buffer;
 }
 
 
@@ -167,20 +159,20 @@ describe_machine_state(machineRec* machine)
 inline void
 hand_over_event_to_next_plugin(InternalEvent *event, PluginInstance* plugin)
 {
-   PluginInstance* next = plugin->next;
+    PluginInstance* next = plugin->next;
 
 #if DEBUG
-   if (((machineRec*) plugin_machine(plugin))->config->debug)
-      {
-         DeviceIntPtr keybd = plugin->device;
-         DB(("%s<<<", keysym_color));
-         DB(("%s", describe_key(keybd, event)));
-         DB(("%s\n", color_reset));
-      }
+    if (((machineRec*) plugin_machine(plugin))->config->debug)
+    {
+        DeviceIntPtr keybd = plugin->device;
+        DB(("%s<<<", keysym_color));
+        DB(("%s", describe_key(keybd, event)));
+        DB(("%s\n", color_reset));
+    }
 #endif
-   assert (!plugin_frozen(next));
-   memory_balance -= event->any.length;
-   PluginClass(next)->ProcessEvent(next, event, TRUE); // we always own the event (up to now)
+    assert (!plugin_frozen(next));
+    memory_balance -= event->any.length;
+    PluginClass(next)->ProcessEvent(next, event, TRUE); // we always own the event (up to now)
 }
 
 
@@ -189,53 +181,55 @@ hand_over_event_to_next_plugin(InternalEvent *event, PluginInstance* plugin)
 static void
 try_to_output(PluginInstance* plugin)
 {
-  machineRec* machine = plugin_machine(plugin);
+    machineRec* machine = plugin_machine(plugin);
 
-  CHECK_LOCKED(machine);
+    CHECK_LOCKED(machine);
 
-  list_with_tail &queue = machine->output_queue;
-  PluginInstance* next = plugin->next;
+    list_with_tail &queue = machine->output_queue;
+    PluginInstance* next = plugin->next;
 
-  MDB(("%s: Queues: output: %d\t internal: %d\t input: %d \n", __FUNCTION__,
-       queue.length (),
-       machine->internal_queue.length (),
-       machine->input_queue.length ()));
+    MDB(("%s: Queues: output: %d\t internal: %d\t input: %d \n", __FUNCTION__,
+         queue.length (),
+         machine->internal_queue.length (),
+         machine->input_queue.length ()));
 
-  while ((!plugin_frozen(next)) && (!queue.empty ())) {
-      key_event* ev = queue.pop();
+    while ((!plugin_frozen(next)) && (!queue.empty ())) {
+        key_event* ev = queue.pop();
 
-      machine->last_events->push_back(make_archived_events(ev));
-      InternalEvent* event = ev->event;
-      mxfree(ev, sizeof(key_event));
+        machine->last_events->push_back(make_archived_events(ev));
+        InternalEvent* event = ev->event;
+        mxfree(ev, sizeof(key_event));
 
-      UNLOCK(machine);
-      hand_over_event_to_next_plugin(event, plugin);
-      LOCK(machine);
-  };
-  if (!plugin_frozen(next))
-  {
-      // todo: we should push the time!
-      Time now;
-      if (!queue.empty())
-      {
-          now = time_of(queue.front()->event);
-      } else if (machine->internal_queue.empty())
-      {
-          now = time_of(machine->internal_queue.front()->event);
-      }
-      else if (machine->input_queue.empty())
-      {
-          now = time_of(machine->input_queue.front()->event);
-      } else {
-          now = 0;
-      }
+        UNLOCK(machine);
+        hand_over_event_to_next_plugin(event, plugin);
+        LOCK(machine);
+    };
+    if (!plugin_frozen(next))
+    {
+        // todo: we should push the time!
+        Time now;
+        if (!queue.empty())
+        {
+            now = time_of(queue.front()->event);
+        }
+        else if (!machine->internal_queue.empty())
+        {
+            now = time_of(machine->internal_queue.front()->event);
+        }
+        else if (!machine->input_queue.empty())
+        {
+            now = time_of(machine->input_queue.front()->event);
+        }
+        else
+        {
+            now = 0;
+        }
 
-      if (now)
-          PluginClass(plugin->next)->ProcessTime(plugin->next, now);
-
-      if (!queue.empty ())
-          MDB(("%s: still %d events to output\n", __FUNCTION__, queue.length ()));
-  }
+        if (now)
+            PluginClass(plugin->next)->ProcessTime(plugin->next, now);
+    }
+    if (!queue.empty ())
+        MDB(("%s: still %d events to output\n", __FUNCTION__, queue.length ()));
 }
 
 // Another event has been determined. So:
@@ -244,20 +238,20 @@ try_to_output(PluginInstance* plugin)
 static void
 output_event(key_event* handle, PluginInstance* plugin)
 {
-   assert(handle->event);
-   //assert(! handle->cdr);
+    assert(handle->event);
 
-   InternalEvent *event = handle->event;
-   machineRec* machine = plugin_machine(plugin);
+    InternalEvent *event = handle->event;
+    machineRec* machine = plugin_machine(plugin);
 
-   machine->time_of_last_output = time_of(event);
-   machine->output_queue.push(handle);
-   try_to_output(plugin);
+    machine->time_of_last_output = time_of(event);
+    machine->output_queue.push(handle);
+    try_to_output(plugin);
 };
 
 
-/* event* we copy a pointer !!!  */
-#define EMIT_EVENT(ev) {output_event(ev, plugin);}
+// note, that after this EV could point to a deallocated memory!
+// bad macro: evaluates EV twice.
+#define EMIT_EVENT(ev) {output_event(ev, plugin); ev=NULL;}
 
 /**
  * Operations on the machine
@@ -265,7 +259,6 @@ output_event(key_event* handle, PluginInstance* plugin)
  * `self_forked' means, that i decided to NOT fork. to mark this decision
  * (for when a repeated event arrives), i fork it to its own keycode
  */
-
 
 
 
@@ -278,15 +271,15 @@ output_event(key_event* handle, PluginInstance* plugin)
  * key-wise   per-pair per-pair ....
  * key-wise   per-pair per-pair ....
  * ....
-*/
+ */
 
 inline Time
 get_value_from_matrix (keycode_parameter_matrix matrix, KeyCode code, KeyCode verificator)
 {
-  return (matrix[code][verificator]?
-          matrix[code][verificator]:
-          (matrix[code][0]?
-           matrix[code][0]: matrix[0][0]));
+    return (matrix[code][verificator]?
+            matrix[code][verificator]:
+            (matrix[code][0]?
+             matrix[code][0]: matrix[0][0]));
 }
 
 
@@ -294,34 +287,40 @@ inline Time
 verification_interval_of(fork_configuration* config,
                          KeyCode code, KeyCode verificator)
 {
-  return get_value_from_matrix (config->verification_interval, code, verificator);
+    return get_value_from_matrix (config->verification_interval, code, verificator);
 }
 
 
 inline Time
 overlap_tolerance_of(fork_configuration* config, KeyCode code, KeyCode verificator)
 {
-  return get_value_from_matrix (config->overlap_tolerance, code, verificator);
+    return get_value_from_matrix (config->overlap_tolerance, code, verificator);
+}
+
+inline Bool
+forkable_p(fork_configuration* config, KeyCode code)
+{
+    return (config->fork_keycode[code]);
 }
 
 
-/* now the operations on the Dynamic state */
+/* Now the operations on the Dynamic state */
 
 /* Return the keycode into which CODE has forked _last_ time.
    Returns code itself, if not forked. */
 inline Bool
 key_forked(machineRec *machine, KeyCode code)
 {
-  return (machine->forkActive[code]);
+    return (machine->forkActive[code]);
 }
 
 
 inline void
 change_state(machineRec* machine, state_type new_state)
 {
-  machine->state = new_state;
-  MDB((" --->%s[%dm%s%s\n", escape_sequence, 32 + new_state,
-       state_description[new_state], color_reset));
+    machine->state = new_state;
+    MDB((" --->%s[%dm%s%s\n", escape_sequence, 32 + new_state,
+         state_description[new_state], color_reset));
 }
 
 
@@ -366,27 +365,27 @@ activate_fork(machineRec *machine, PluginInstance* plugin)
 static void
 step_fork_automaton_by_force(machineRec *machine, PluginInstance* plugin)
 {
-   if (machine->state == st_normal) {
-      return;
-   }
-   if (machine->state == st_deactivated) {
-      ErrorF("%s: BUG.\n", __FUNCTION__);
-      return;
-   }
+    if (machine->state == st_normal) {
+        return;
+    }
+    if (machine->state == st_deactivated) {
+        ErrorF("%s: BUG.\n", __FUNCTION__);
+        return;
+    }
 
-   if (machine->internal_queue.empty())
-      return;
+    if (machine->internal_queue.empty())
+        return;
 
-   /* so, the state is one of: verify, suspect or activated. */
-   list_with_tail& queue = machine->internal_queue;
+    /* so, the state is one of: verify, suspect or activated. */
+    list_with_tail& queue = machine->internal_queue;
 
-   MDB(("%s%s%s state: %s, queue: %d .... FORCE\n",
-        fork_color, __FUNCTION__, color_reset,
-        describe_machine_state(machine),
-        queue.length ()));
+    MDB(("%s%s%s state: %s, queue: %d .... FORCE\n",
+         fork_color, __FUNCTION__, color_reset,
+         describe_machine_state(machine),
+         queue.length ()));
 
-   machine->time_left = 0;
-   activate_fork(machine, plugin);
+    machine->time_left = 0;
+    activate_fork(machine, plugin);
 }
 
 static void
@@ -400,28 +399,28 @@ do_enqueue_event(machineRec *machine, key_event *ev)
 static void
 do_confirm_non_fork(machineRec *machine, key_event *ev, PluginInstance* plugin)
 {
-   assert(machine->time_left == 0);
-   change_state(machine, st_deactivated);
-   machine->internal_queue.push(ev); //  this  will be re-processed!!
+    assert(machine->time_left == 0);
+    change_state(machine, st_deactivated);
+    machine->internal_queue.push(ev); //  this  will be re-processed!!
 
 
-   key_event* non_forked_event = machine->internal_queue.pop();
-   MDB(("this is not a fork! %d\n", detail_of(non_forked_event->event)));
-   EMIT_EVENT(non_forked_event);
+    key_event* non_forked_event = machine->internal_queue.pop();
+    MDB(("this is not a fork! %d\n", detail_of(non_forked_event->event)));
+    EMIT_EVENT(non_forked_event);
 }
 
 // so EV confirms fork of the current event.
 static void
 do_confirm_fork(machineRec *machine, key_event *ev, PluginInstance* plugin)
 {
-   if (machine->time_left < 0)
-       machine->time_left = 0;
+    if (machine->time_left < 0)
+        machine->time_left = 0;
 
-   /* fixme: ev is the just-read event. But that is surely not the head
-      of queue (which is confirmed to fork) */
-   DB(("confirm:\n"));
-   activate_fork(machine, plugin);
-   machine->internal_queue.push(ev);
+    /* fixme: ev is the just-read event. But that is surely not the head
+       of queue (which is confirmed to fork) */
+    DB(("confirm:\n"));
+    activate_fork(machine, plugin);
+    machine->internal_queue.push(ev);
 }
 
 /*
@@ -437,79 +436,79 @@ do_confirm_fork(machineRec *machine, key_event *ev, PluginInstance* plugin)
 static void
 step_fork_automaton_by_time(machineRec *machine, PluginInstance* plugin, Time current_time)
 {
-  if ((machine->state == st_normal) || (machine->state == st_deactivated)) {
-    DB(("%s: unexpected: %s!", __FUNCTION__, describe_machine_state(machine)));
-    return;
-  };
+    if ((machine->state == st_normal) || (machine->state == st_deactivated)) {
+        DB(("%s: unexpected: %s!", __FUNCTION__, describe_machine_state(machine)));
+        return;
+    };
 
-  list_with_tail &queue = machine->internal_queue;
-  if (queue.empty()){
-    DB(("%s: the internal queue is empty. Most likely the last event caused freeze,"
-        "and replay_events didn't do any work\thowever, this timer is BUG\n", __FUNCTION__));
-    /* fixme! now what?  */
-  }
-
-  // confirm fork:
-  int reason;
-  KeyCode suspected = detail_of(queue.front()->event);
-
-  MDB(("%s%s%s state: %s, queue: %d, time: %u key: %d\n",
-       fork_color, __FUNCTION__, color_reset,
-       describe_machine_state (machine),
-       queue.length (), (int)current_time, suspected));
-
-  /* First, i try the simple (fork-by-one-keys).
-   * If that works, -> fork! Otherwise, i try w/ 2-key forking, overlapping.
-   */
-  int verification_interval = verification_interval_of(machine->config, suspected,
-                                                       machine->verificator);
-  // fixme the  follower,
-  // not verificator, but for now
-  machine->time_left = verification_interval - (current_time - machine->suspect_time);
-  MDB(("time: verification_interval = %dms elapsed so far =%dms  ->", verification_interval,
-       (int)(current_time - machine->suspect_time)));
-
-  if (machine->time_left <= 0){
-    /* time_difference_more(machine->suspect_time, time_of(event),
-     * verification_interval)) */
-    reason = reason_total;
-    goto confirm_fork;
-  };
-
-  /* To test 2 keys overlap, we need the 2nd key: a verificator! */
-  if (machine->state == st_verify) {
-    // verify overlap
-    int overlap_tolerance = overlap_tolerance_of(machine->config, suspected,
-                                                 machine->verificator);
-    int another_time_left =  overlap_tolerance -  (current_time - machine->verificator_time);
-
-    if (another_time_left < machine->time_left)
-      machine->time_left = another_time_left;
-
-    MDB(("time: overlay interval = %dms elapsed so far =%dms  ->", overlap_tolerance,
-         (int) (current_time - machine->verificator_time)));
-    if (machine->time_left <= 0) {
-      /* verification_interval)  time_difference_more(machine->verificator_time, current_time,
-         overlap_tolerance)*/
-      reason = reason_overlap;
-      goto confirm_fork;
+    list_with_tail &queue = machine->internal_queue;
+    if (queue.empty()){
+        DB(("%s: the internal queue is empty. Most likely the last event caused freeze,"
+            "and replay_events didn't do any work\thowever, this timer is BUG\n", __FUNCTION__));
+        /* fixme! now what?  */
     }
-    // so, now we are surely in the replay_mode. All we need is to
-    // get an estimate on time still needed:
-  }
+
+    // confirm fork:
+    int reason;
+    KeyCode suspected = detail_of(queue.front()->event);
+
+    MDB(("%s%s%s state: %s, queue: %d, time: %u key: %d\n",
+         fork_color, __FUNCTION__, color_reset,
+         describe_machine_state (machine),
+         queue.length (), (int)current_time, suspected));
+
+    /* First, i try the simple (fork-by-one-keys).
+     * If that works, -> fork! Otherwise, i try w/ 2-key forking, overlapping.
+     */
+    int verification_interval = verification_interval_of(machine->config, suspected,
+                                                         machine->verificator);
+    // fixme the  follower,
+    // not verificator, but for now
+    machine->time_left = verification_interval - (current_time - machine->suspect_time);
+    MDB(("time: verification_interval = %dms elapsed so far =%dms  ->", verification_interval,
+         (int)(current_time - machine->suspect_time)));
+
+    if (machine->time_left <= 0){
+        /* time_difference_more(machine->suspect_time, time_of(event),
+         * verification_interval)) */
+        reason = reason_total;
+        goto confirm_fork;
+    };
+
+    /* To test 2 keys overlap, we need the 2nd key: a verificator! */
+    if (machine->state == st_verify) {
+        // verify overlap
+        int overlap_tolerance = overlap_tolerance_of(machine->config, suspected,
+                                                     machine->verificator);
+        int another_time_left =  overlap_tolerance -  (current_time - machine->verificator_time);
+
+        if (another_time_left < machine->time_left)
+            machine->time_left = another_time_left;
+
+        MDB(("time: overlay interval = %dms elapsed so far =%dms  ->", overlap_tolerance,
+             (int) (current_time - machine->verificator_time)));
+        if (machine->time_left <= 0) {
+            /* verification_interval)  time_difference_more(machine->verificator_time, current_time,
+               overlap_tolerance)*/
+            reason = reason_overlap;
+            goto confirm_fork;
+        }
+        // so, now we are surely in the replay_mode. All we need is to
+        // get an estimate on time still needed:
+    }
 
 
-  /* So, we were woken too early. */
-  assert (machine->time_left > 0);
-  /* MDB */
-  DB(("*** %s: returning with some more time-to-wait: %d (prematurely waken)\n", __FUNCTION__,
-      machine->time_left));
-  return;
+    /* So, we were woken too early. */
+    assert (machine->time_left > 0);
+    /* MDB */
+    DB(("*** %s: returning with some more time-to-wait: %d (prematurely waken)\n", __FUNCTION__,
+        machine->time_left));
+    return;
 
- confirm_fork:
-  machine->time_left = 0;
-  activate_fork(machine, plugin);
-  return;
+  confirm_fork:
+    machine->time_left = 0;
+    activate_fork(machine, plugin);
+    return;
 }
 
 
@@ -573,33 +572,33 @@ apply_event_to_normal(machineRec *machine, key_event *ev, PluginInstance* plugin
             /*todo: time_difference_more(machine->last_released_time,simulated_time, config->repeat_max) */
             (int)(simulated_time - machine->last_released_time) > config->repeat_max))
         {
-             change_state(machine, st_suspect);
-             machine->suspect_time = time_of(event);
-             machine->time_left = verification_interval_of(machine->config, key, 0);
-             do_enqueue_event(machine, ev);
-             return;
-        } else {
+        change_state(machine, st_suspect);
+        machine->suspect_time = time_of(event);
+        machine->time_left = verification_interval_of(machine->config, key, 0);
+        do_enqueue_event(machine, ev);
+        return;
+    } else {
         // .- trick: (fixme: or self-forked)
         MDB(("re-pressed very quickly\n"));
         machine->forkActive[key] = key; // fixme: why??
         EMIT_EVENT(ev);
         return;
-        };
+    };
     }
     else if (release_p(event) && (key_forked(machine, key)))
     {
 	MDB(("releasing forked key\n"));
 	// fixme:  we should see if the fork was `used'.
 	if (config->consider_forks_for_repeat){
-            // C-f   f long becomes fork. now we wanted to repeat it....
-            machine->last_released = detail_of(event);
-            machine->last_released_time = time_of(event);
-        } else {
-            // imagine mouse-button during the short 1st press. Then
-            // the 2nd press ..... should not relate the the 1st one.
-            machine->last_released = 0;
-            machine->last_released_time = 0;
-        }
+        // C-f   f long becomes fork. now we wanted to repeat it....
+        machine->last_released = detail_of(event);
+        machine->last_released_time = time_of(event);
+    } else {
+        // imagine mouse-button during the short 1st press. Then
+        // the 2nd press ..... should not relate the the 1st one.
+        machine->last_released = 0;
+        machine->last_released_time = 0;
+    }
 	/* we finally release a (self-)forked key. Rewrite back the keycode.
 	 *
 	 * fixme: do i do this in other machine states?
@@ -615,18 +614,18 @@ apply_event_to_normal(machineRec *machine, key_event *ev, PluginInstance* plugin
     {
 	if (release_p (event))
 	{
-           machine->last_released = detail_of(event);
-           machine->last_released_time = time_of(event);
-        }
+        machine->last_released = detail_of(event);
+        machine->last_released_time = time_of(event);
+    }
 #if CLEAR_INTERVAL
 	if (time_difference_less(time_of_previous_event(machine, ev),
             time_of(event), config->clear_interval))
 	{
-            DB(("%d < %d = clear interval\n",
-                (int)(time_of(event) -
-                time_of_previous_event(machine, ev)),
-                config->clear_interval));
-        };
+        DB(("%d < %d = clear interval\n",
+            (int)(time_of(event) -
+            time_of_previous_event(machine, ev)),
+            config->clear_interval));
+    };
 #endif
 	// pass along the un-forkable event.
 	EMIT_EVENT(ev);
@@ -640,98 +639,98 @@ apply_event_to_normal(machineRec *machine, key_event *ev, PluginInstance* plugin
 static void
 apply_event_to_suspect(machineRec *machine, key_event *ev, PluginInstance* plugin)
 {
-  InternalEvent* event = ev->event;
-  Time simulated_time = time_of(event);
-  KeyCode key = detail_of(event);
+    InternalEvent* event = ev->event;
+    Time simulated_time = time_of(event);
+    KeyCode key = detail_of(event);
 
-  list_with_tail &queue = machine->internal_queue;
-  KeyCode suspected = detail_of(queue.front()->event);
+    list_with_tail &queue = machine->internal_queue;
+    KeyCode suspected = detail_of(queue.front()->event);
 
-  DeviceIntPtr keybd = plugin->device;
+    DeviceIntPtr keybd = plugin->device;
 
-  /* Here, we can
-   * o refuse .... if suspected/forkable is released quickly,
-   * o fork (definitively),  ... for _time_
-   * o start verifying, or wait, or confirm (timeout)
-   * todo: I should repeat a bi-depressed forkable.
-   */
-  assert(!queue.empty() && machine->state == st_suspect);
+    /* Here, we can
+     * o refuse .... if suspected/forkable is released quickly,
+     * o fork (definitively),  ... for _time_
+     * o start verifying, or wait, or confirm (timeout)
+     * todo: I should repeat a bi-depressed forkable.
+     */
+    assert(!queue.empty() && machine->state == st_suspect);
 
-  // todo: check the ranges (long vs. int)
-  int verification_interval = verification_interval_of(machine->config, suspected, 0);
-  machine->time_left = verification_interval - (simulated_time - machine->suspect_time);
+    // todo: check the ranges (long vs. int)
+    int verification_interval = verification_interval_of(machine->config, suspected, 0);
+    machine->time_left = verification_interval - (simulated_time - machine->suspect_time);
 
-  if (machine->time_left <= 0) {
-    /* time_difference_more(machine->suspect_time, time_of(event), verification_interval)) */
+    if (machine->time_left <= 0) {
+        /* time_difference_more(machine->suspect_time, time_of(event), verification_interval)) */
 
-    MDB(("time: VERIFIED! verification_interval = %dms, elapsed so far =%dms  ->",
-         verification_interval,  (int)(simulated_time - machine->suspect_time)));
-    do_confirm_fork(machine, ev, plugin);
-    return;
-  } else
-      MDB(("suspect: elapsed: %dms   -> needed %dms (left: %d)\n",
-           (int) (simulated_time - machine->suspect_time), verification_interval, machine->time_left));
+        MDB(("time: VERIFIED! verification_interval = %dms, elapsed so far =%dms  ->",
+             verification_interval,  (int)(simulated_time - machine->suspect_time)));
+        do_confirm_fork(machine, ev, plugin);
+        return;
+    } else
+        MDB(("suspect: elapsed: %dms   -> needed %dms (left: %d)\n",
+             (int) (simulated_time - machine->suspect_time), verification_interval, machine->time_left));
 
-  /* So, we now have a second key, since the duration of 1 key was not enough. */
-  if (release_p(event))
-  {
-      MDB(("suspect/release: suspected = %d, time diff: %d\n", suspected,
-           (int)(simulated_time  -  machine->suspect_time)));
-      if (key == suspected){
-          machine->time_left = 0; // i've used it for calculations ... so
-          do_confirm_non_fork(machine, ev, plugin);
-          return;
-          /* fixme:  here we confirm, that it was not a user error.....
-             bad synchro. i.e. the suspected key was just released  */
-      } else {
-          /* something released, but not verificating, b/c we are in `suspect', not `confirm'  */
-          do_enqueue_event(machine, ev); // the `key'
-          return;
-      };
-  } else {
-      if (!press_p (event))
-      {
-          DB(("!!! should be pressKey, but is .. %s on %s",
-              event_names[event->any.type - 2 ],
-              keybd->name));
-          do_enqueue_event(machine,ev);
-          return;
-      }
+    /* So, we now have a second key, since the duration of 1 key was not enough. */
+    if (release_p(event))
+    {
+        MDB(("suspect/release: suspected = %d, time diff: %d\n", suspected,
+             (int)(simulated_time  -  machine->suspect_time)));
+        if (key == suspected){
+            machine->time_left = 0; // i've used it for calculations ... so
+            do_confirm_non_fork(machine, ev, plugin);
+            return;
+            /* fixme:  here we confirm, that it was not a user error.....
+               bad synchro. i.e. the suspected key was just released  */
+        } else {
+            /* something released, but not verificating, b/c we are in `suspect', not `confirm'  */
+            do_enqueue_event(machine, ev); // the `key'
+            return;
+        };
+    } else {
+        if (!press_p (event))
+        {
+            DB(("!!! should be pressKey, but is .. %s on %s",
+                event_names[event->any.type - 2 ],
+                keybd->name));
+            do_enqueue_event(machine,ev);
+            return;
+        }
 
-      if (key == suspected) {
-          /* How could this happen? Auto-repeat on the lower/hw level?
-           * And that AR interval is shorter than the fork-verification */
-          if (machine->config->fork_repeatable[key]) {
-              MDB(("The suspected key is configured to repeat, so ...\n"));
-              machine->forkActive[suspected] = suspected;
-              machine->time_left = 0;
-              do_confirm_non_fork(machine, ev, plugin);
-              return;
-          } else {
-              // fixme: this keycode is repeating, but we still don't know what to do.
-              // ..... `discard' the event???
-              // fixme: but we should recalc the time_left !!
-              return;
-          }
-      } else {
-          // another key pressed
-          machine->verificator_time = time_of(event);
-          machine->verificator = key; /* if already we had one -> we are not in this state!
-                                         if the verificator becomes a modifier ?? fixme:*/
-          change_state(machine,st_verify);
-          int overlap = overlap_tolerance_of(machine->config, suspected, machine->verificator);
-          // fixme: time_left can change now:
-          machine->time_left = verification_interval_of(machine->config, suspected,
-                                                        machine->verificator)
-              -  (simulated_time - machine->suspect_time);
+        if (key == suspected) {
+            /* How could this happen? Auto-repeat on the lower/hw level?
+             * And that AR interval is shorter than the fork-verification */
+            if (machine->config->fork_repeatable[key]) {
+                MDB(("The suspected key is configured to repeat, so ...\n"));
+                machine->forkActive[suspected] = suspected;
+                machine->time_left = 0;
+                do_confirm_non_fork(machine, ev, plugin);
+                return;
+            } else {
+                // fixme: this keycode is repeating, but we still don't know what to do.
+                // ..... `discard' the event???
+                // fixme: but we should recalc the time_left !!
+                return;
+            }
+        } else {
+            // another key pressed
+            machine->verificator_time = time_of(event);
+            machine->verificator = key; /* if already we had one -> we are not in this state!
+                                           if the verificator becomes a modifier ?? fixme:*/
+            change_state(machine,st_verify);
+            int overlap = overlap_tolerance_of(machine->config, suspected, machine->verificator);
+            // fixme: time_left can change now:
+            machine->time_left = verification_interval_of(machine->config, suspected,
+                                                          machine->verificator)
+                -  (simulated_time - machine->suspect_time);
 
-          if (machine->time_left > overlap){
-              machine->time_left = overlap; // we start now. so _entire_ overlap-tolerance
-          }
-          do_enqueue_event(machine, ev);
-          return;
-      };
-  }
+            if (machine->time_left > overlap){
+                machine->time_left = overlap; // we start now. so _entire_ overlap-tolerance
+            }
+            do_enqueue_event(machine, ev);
+            return;
+        };
+    }
 }
 
 /*
@@ -761,10 +760,10 @@ apply_event_to_verify(machineRec *machine, key_event *ev, PluginInstance* plugin
 
        This should not be fork:
        I----I
-           E--E
+       E--E
        This should be a fork:
        I-----I
-           E--E
+       E--E
        Motivation:  we want to press the modifier for short time (simultaneously
        pressing other keys). But sometimes writing quickly, we
        press before we release the previous letter. We handle this, ignoring
@@ -927,61 +926,61 @@ reverse_slice(list_with_tail &pre, list_with_tail &post)
 static void
 try_to_play(PluginInstance* plugin, Time current_time, Bool force) // force == FALSE for now!
 {
-  machineRec *machine = plugin_machine(plugin);
+    machineRec *machine = plugin_machine(plugin);
 
-  list_with_tail &input_queue = machine->input_queue;
+    list_with_tail &input_queue = machine->input_queue;
 
-  MDB(("%s: next %s: internal %d, input: %d\n", __FUNCTION__,
-       (plugin_frozen(plugin->next)?"frozen":"NOT frozen"),
-       machine->internal_queue.length (),
-       input_queue.length ()));
+    MDB(("%s: next %s: internal %d, input: %d\n", __FUNCTION__,
+         (plugin_frozen(plugin->next)?"frozen":"NOT frozen"),
+         machine->internal_queue.length (),
+         input_queue.length ()));
 
-  // fixme:  no need to malloc & copy:  just use the machine's one.
-  //         you pick from left-overs and free 1 position, and possibly
-  //         re-insert to the queue.
-  while (!plugin_frozen(plugin->next)) { // && (left_overs.head)
+    // fixme:  no need to malloc & copy:  just use the machine's one.
+    //         you pick from left-overs and free 1 position, and possibly
+    //         re-insert to the queue.
+    while (!plugin_frozen(plugin->next)) { // && (left_overs.head)
 
-    if (final_p(machine->state)){        /* forked or normal:  final state */
+        if (final_p(machine->state)){        /* forked or normal:  final state */
 
-      /* then, reset the machine */
-      MDB(("== Resetting the fork machine (internal %d, input %d)\n",
-           machine->internal_queue.length (),
-           input_queue.length ()));
+            /* then, reset the machine */
+            MDB(("== Resetting the fork machine (internal %d, input %d)\n",
+                 machine->internal_queue.length (),
+                 input_queue.length ()));
 
-      change_state(machine,st_normal);
-      machine->verificator = 0;
+            change_state(machine,st_normal);
+            machine->verificator = 0;
 
-      if (!(machine->internal_queue.empty())) {
-          reverse_slice(machine->internal_queue, input_queue);
-          MDB(("now in input_queue: %d\n", input_queue.length ()));
-      }
-    };
+            if (!(machine->internal_queue.empty())) {
+                reverse_slice(machine->internal_queue, input_queue);
+                MDB(("now in input_queue: %d\n", input_queue.length ()));
+            }
+        };
 
-    key_event* ev = NULL;
-    if (! input_queue.empty())
-      {
-        ev = input_queue.pop();
-        // do we have some other events to push?
-        // if (empty(input_queue)) break; /* `FINISH' */
-        // MDB(("== replaying from the queue %d events\t", replay_size));
-        /* and feed it. */
-        //  increase_modulo_DO(input_queue.head, MAX_EVENTS_IN_QUEUE);
-        MDB(("--calling step_fork_automaton_by_key\n"));
-        step_fork_automaton_by_key(machine, ev, plugin);
-      } else {
-      // at the end ... add the final time event:
-      if (current_time && (machine->state != st_normal)){
-        step_fork_automaton_by_time (machine, plugin,  current_time);
-        if (machine->time_left)
-          break; /* `FINISH' */
-      } else if (force && (machine->state != st_normal)){
-        step_fork_automaton_by_force (machine, plugin);
-      } else break; /* `FINISH' */
-      // didn't help -> break:
-      // error:  consider the time !!
+        key_event* ev = NULL;
+        if (! input_queue.empty())
+        {
+            ev = input_queue.pop();
+            // do we have some other events to push?
+            // if (empty(input_queue)) break; /* `FINISH' */
+            // MDB(("== replaying from the queue %d events\t", replay_size));
+            /* and feed it. */
+            //  increase_modulo_DO(input_queue.head, MAX_EVENTS_IN_QUEUE);
+            MDB(("--calling step_fork_automaton_by_key\n"));
+            step_fork_automaton_by_key(machine, ev, plugin);
+        } else {
+            // at the end ... add the final time event:
+            if (current_time && (machine->state != st_normal)){
+                step_fork_automaton_by_time (machine, plugin,  current_time);
+                if (machine->time_left)
+                    break; /* `FINISH' */
+            } else if (force && (machine->state != st_normal)){
+                step_fork_automaton_by_force (machine, plugin);
+            } else break; /* `FINISH' */
+            // didn't help -> break:
+            // error:  consider the time !!
+        }
     }
-  }
-  /* assert(!plugin_frozen(plugin->next)   ---> queue_empty(machine->input_queue)) */
+    /* assert(!plugin_frozen(plugin->next)   ---> queue_empty(machine->input_queue)) */
 }
 
 
@@ -995,20 +994,18 @@ void
 replay_events(PluginInstance* plugin, Time current_time, Bool force)
 {
     machineRec* machine= plugin_machine(plugin);
-    CHECK_LOCKED(machine);
-
     MDB(("%s\n", __FUNCTION__));
+    CHECK_LOCKED(machine);
 
     if (!machine->internal_queue.empty())
     {
-        reverse_slice (machine->internal_queue, input_queue)
+        reverse_slice (machine->internal_queue, machine->input_queue);
     }
-
     machine->state = st_normal;
     // todo: what else?
     // last_released & last_released_time no more available.
-    machine->last_released = 0;
-    machine->time_left = 0;
+    machine->last_released = 0; // bug!
+    machine->time_left = 0;     // we are not waiting for anything
 
     try_to_play(plugin, current_time, force);
 }
@@ -1128,48 +1125,48 @@ filter_config_key_maybe(PluginInstance* plugin,const InternalEvent *event)
 static void
 set_wakeup_time(PluginInstance* plugin, Time now)
 {
-   machineRec* machine = plugin_machine(plugin);
-   CHECK_LOCKED(machine);
-   plugin->wakeup_time = (machine->time_left) ? machine->time_left + now:
-       (machine->internal_queue.empty())? plugin->next->wakeup_time:0;
+    machineRec* machine = plugin_machine(plugin);
+    CHECK_LOCKED(machine);
+    plugin->wakeup_time = (machine->time_left) ? machine->time_left + now:
+        (machine->internal_queue.empty())? plugin->next->wakeup_time:0;
 
-   MDB(("%s %s wakeup_time = %u, next wants: %u\n", FORK_PLUGIN_NAME, __FUNCTION__,
-	(int)plugin->wakeup_time, (int)plugin->next->wakeup_time));
+    MDB(("%s %s wakeup_time = %u, next wants: %u\n", FORK_PLUGIN_NAME, __FUNCTION__,
+         (int)plugin->wakeup_time, (int)plugin->next->wakeup_time));
 }
 
 
 static key_event*
 create_handle_for_event(InternalEvent *event, bool owner)
 {
-   InternalEvent* qe;
-   if (owner)
-       qe = event;
-   else {
-     qe = (InternalEvent*)malloc(event->any.length);
-     if (!qe)
-         {
+    InternalEvent* qe;
+    if (owner)
+        qe = event;
+    else {
+        qe = (InternalEvent*)malloc(event->any.length);
+        if (!qe)
+        {
             // if we are out-of-memory, we probably cannot even process ErrorF, can we?
             ErrorF("%s: out-of-memory\n", __FUNCTION__);
             return NULL;
-         }
-   }
-   // the handle is deallocated in `try_to_output'
-   key_event* ev = (key_event*)malloc(sizeof(key_event));
-   if (!ev) {
-      /* This message should be static string. otherwise it fails as well? */
-      ErrorF("%s: out-of-memory, dropping\n", __FUNCTION__);
-      if (!owner)
-         mxfree (qe, event->any.length);
-      return NULL;
-   };
+        }
+    }
+    // the handle is deallocated in `try_to_output'
+    key_event* ev = (key_event*)malloc(sizeof(key_event));
+    if (!ev) {
+        /* This message should be static string. otherwise it fails as well? */
+        ErrorF("%s: out-of-memory, dropping\n", __FUNCTION__);
+        if (!owner)
+            mxfree (qe, event->any.length);
+        return NULL;
+    };
 
-   memcpy(qe, event, event->any.length);
-   DB(("+++ accepted new event: %s\n",
-       event_names[event->any.type - 2 ]));
+    memcpy(qe, event, event->any.length);
+    DB(("+++ accepted new event: %s\n",
+        event_names[event->any.type - 2 ]));
 
-   ev->event = qe;
-   ev->forked = 0;
-   return ev;
+    ev->event = qe;
+    ev->forked = 0;
+    return ev;
 }
 
 
@@ -1177,7 +1174,7 @@ create_handle_for_event(InternalEvent *event, bool owner)
 /*  This is the handler for all key events.  Here we delay pushing them forward.
     it's a trampoline for the automaton.
     Should it return some Time?
- */
+*/
 static void
 ProcessEvent(PluginInstance* plugin, InternalEvent *event, Bool owner)
 {
@@ -1237,7 +1234,7 @@ step_in_time_locked(PluginInstance* plugin, Time now)
         UNLOCK(machine);
         /* might this be invoked several times?  */
         PluginClass(plugin->next)->ProcessTime(plugin->next, now);
-        UNLOCK(machine);
+        LOCK(machine);
     }
     // todo: we could push the time before the first event in internal queue!
     set_wakeup_time(plugin, now);
@@ -1247,11 +1244,11 @@ step_in_time_locked(PluginInstance* plugin, Time now)
 static void
 step_in_time(PluginInstance* plugin, Time now)
 {
-   machineRec* machine = plugin_machine(plugin);
-   MDB(("%s:\n", __FUNCTION__));
-   LOCK(machine);
-   step_in_time_locked(plugin, now);
-   UNLOCK(machine);
+    machineRec* machine = plugin_machine(plugin);
+    MDB(("%s:\n", __FUNCTION__));
+    LOCK(machine);
+    step_in_time_locked(plugin, now);
+    UNLOCK(machine);
 };
 
 
@@ -1259,28 +1256,28 @@ step_in_time(PluginInstance* plugin, Time now)
 static void
 fork_thaw_notify(PluginInstance* plugin, Time now)
 {
-  machineRec* machine = plugin_machine(plugin);
-  MDB(("%s @ time %u\n", __FUNCTION__, (int)now));
+    machineRec* machine = plugin_machine(plugin);
+    MDB(("%s @ time %u\n", __FUNCTION__, (int)now));
 
-  LOCK(machine);
-  try_to_output(plugin);
-  // is this correct?
+    LOCK(machine);
+    try_to_output(plugin);
+    // is this correct?
 
-  if (!plugin_frozen(plugin->next) && PluginClass(plugin->prev)->NotifyThaw)
+    if (!plugin_frozen(plugin->next) && PluginClass(plugin->prev)->NotifyThaw)
     {
-      /* thaw the previous! */
-      set_wakeup_time(plugin, now);
-      UNLOCK(machine);
-      MDB(("%s -- sending thaw Notify upwards!\n", __FUNCTION__));
-      /* fixme:  Tail-recursion! */
-      PluginClass(plugin->prev)->NotifyThaw(plugin->prev, now);
-      /* I could move now to the time of our event. */
-      /* step_in_time_locked(plugin, now); */
+        /* thaw the previous! */
+        set_wakeup_time(plugin, now);
+        UNLOCK(machine);
+        MDB(("%s -- sending thaw Notify upwards!\n", __FUNCTION__));
+        /* fixme:  Tail-recursion! */
+        PluginClass(plugin->prev)->NotifyThaw(plugin->prev, now);
+        /* I could move now to the time of our event. */
+        /* step_in_time_locked(plugin, now); */
     } else {
-    MDB(("%s -- NOT sending thaw Notify upwards %s!\n", __FUNCTION__,
-         plugin_frozen(plugin)?"next is frozen":"prev has not NotifyThaw"));
-    UNLOCK(machine);
-  }
+        MDB(("%s -- NOT sending thaw Notify upwards %s!\n", __FUNCTION__,
+             plugin_frozen(plugin)?"next is frozen":"prev has not NotifyThaw"));
+        UNLOCK(machine);
+    }
 }
 
 
@@ -1289,18 +1286,18 @@ static void
 mouse_call_back(CallbackListPtr *, PluginInstance* plugin,
                 DeviceEventInfoRec* dei)
 {
-   InternalEvent *event = dei->event;
-   machineRec* machine = plugin_machine(plugin);
+    InternalEvent *event = dei->event;
+    machineRec* machine = plugin_machine(plugin);
 
-   if (event->any.type == ET_Motion)
-      {
-         if (machine->lock)
+    if (event->any.type == ET_Motion)
+    {
+        if (machine->lock)
             ErrorF("%s running, while the machine is locked!\n", __FUNCTION__);
-         /* else */
-         LOCK(machine);
-         step_fork_automaton_by_force(plugin_machine(plugin), plugin);
-         UNLOCK(machine);
-      }
+        /* else */
+        LOCK(machine);
+        step_fork_automaton_by_force(plugin_machine(plugin), plugin);
+        UNLOCK(machine);
+    }
 }
 
 
@@ -1311,79 +1308,79 @@ mouse_call_back(CallbackListPtr *, PluginInstance* plugin,
 static PluginInstance*
 make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
 {
-   DB(("%s\n", __FUNCTION__));
-   assert (strcmp(plugin_class->name, FORK_PLUGIN_NAME) == 0);
+    DB(("%s\n", __FUNCTION__));
+    assert (strcmp(plugin_class->name, FORK_PLUGIN_NAME) == 0);
 
-   PluginInstance* plugin = MALLOC(PluginInstance);
-   plugin->pclass = plugin_class;
-   plugin->device = keybd;
+    PluginInstance* plugin = MALLOC(PluginInstance);
+    plugin->pclass = plugin_class;
+    plugin->device = keybd;
 
-   machineRec* forking_machine = NULL;
+    machineRec* forking_machine = NULL;
 
-   // I create 2 config sets.  1 w/o forking.
-   // They are numbered:  0 is the no-op.
-   fork_configuration* config_no_fork = machine_new_config(); // configuration number 0
-   config_no_fork->debug = 0;   // should be settable somehow.
-   if (!config_no_fork)
-      {
-         return NULL;
-      }
+    // I create 2 config sets.  1 w/o forking.
+    // They are numbered:  0 is the no-op.
+    fork_configuration* config_no_fork = machine_new_config(); // configuration number 0
+    config_no_fork->debug = 0;   // should be settable somehow.
+    if (!config_no_fork)
+    {
+        return NULL;
+    }
 
-   fork_configuration* config = machine_new_config();
-   if (!config)
-      {
-         free (config_no_fork);
-         return NULL;
-      }
+    fork_configuration* config = machine_new_config();
+    if (!config)
+    {
+        free (config_no_fork);
+        return NULL;
+    }
 
-   config->next = config_no_fork;
-   // config->id = config_no_fork->id + 1;
-   // so we start w/ config 1. 0 is empty and should not be modifiable
+    config->next = config_no_fork;
+    // config->id = config_no_fork->id + 1;
+    // so we start w/ config 1. 0 is empty and should not be modifiable
 
-   ErrorF("%s: constructing the machine %d (official release: %s)\n",
-	  __FUNCTION__, PLUGIN_VERSION, VERSION_STRING);
+    ErrorF("%s: constructing the machine %d (official release: %s)\n",
+           __FUNCTION__, PLUGIN_VERSION, VERSION_STRING);
 
-   forking_machine =  (machineRec* )mmalloc(sizeof(machineRec));
-   bzero(forking_machine, sizeof (machineRec));
+    forking_machine =  (machineRec* )mmalloc(sizeof(machineRec));
+    bzero(forking_machine, sizeof (machineRec));
 
-   if (! forking_machine){
-      ErrorF("%s: malloc failed (for forking_machine)\n",__FUNCTION__);
-      // free all the previous ....!
-      return NULL;              // BadAlloc
-   }
-
-
-   // now, if something goes wrong, we have to free it!!
-   forking_machine->internal_queue.set_name("internal");
-   forking_machine->input_queue.set_name("input");
-   forking_machine->output_queue.set_name("output");
+    if (! forking_machine){
+        ErrorF("%s: malloc failed (for forking_machine)\n",__FUNCTION__);
+        // free all the previous ....!
+        return NULL;              // BadAlloc
+    }
 
 
-   forking_machine->max_last = 100;
-   forking_machine->last_events = new last_events_type(forking_machine->max_last);
+    // now, if something goes wrong, we have to free it!!
+    forking_machine->internal_queue.set_name("internal");
+    forking_machine->input_queue.set_name("input");
+    forking_machine->output_queue.set_name("output");
 
-   forking_machine->state = st_normal;
-   forking_machine->last_released = 0;
 
-   UNLOCK(forking_machine);
-   forking_machine->time_left = 0;
+    forking_machine->max_last = 100;
+    forking_machine->last_events = new last_events_type(forking_machine->max_last);
 
-   for (int i=0;i<256;i++){                   // keycode 0 is unused!
-      forking_machine->forkActive[i] = 0; /* 0 = not active */
-   };
+    forking_machine->state = st_normal;
+    forking_machine->last_released = 0;
 
-   config->debug = 1;
-   forking_machine->config = config;
+    UNLOCK(forking_machine);
+    forking_machine->time_left = 0;
 
-   forking_machine->time_of_last_output = 0;
+    for (int i=0;i<256;i++){                   // keycode 0 is unused!
+        forking_machine->forkActive[i] = 0; /* 0 = not active */
+    };
 
-   plugin->data = (void*) forking_machine;
-   ErrorF("%s: returning %d\n", __FUNCTION__, Success);
+    config->debug = 1;
+    forking_machine->config = config;
 
-   AddCallback(&DeviceEventCallback, (CallbackProcPtr) mouse_call_back, (void*) plugin);
+    forking_machine->time_of_last_output = 0;
 
-   plugin_class->ref_count++;
-   return plugin;
+    plugin->data = (void*) forking_machine;
+    ErrorF("%s: returning %d\n", __FUNCTION__, Success);
+
+    AddCallback(&DeviceEventCallback, (CallbackProcPtr) mouse_call_back, (void*) plugin);
+
+    plugin_class->ref_count++;
+    return plugin;
 };
 
 
@@ -1394,26 +1391,26 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
 static int
 stop_and_exhaust_machine(PluginInstance* plugin)
 {
-  machineRec* machine = plugin_machine(plugin);
-  LOCK(machine);
-  MDB(("%s: what to do?\n", __FUNCTION__));
-  // free all the stuff, and then:
-  xkb_remove_plugin (plugin);
-  return 1;
+    machineRec* machine = plugin_machine(plugin);
+    LOCK(machine);
+    MDB(("%s: what to do?\n", __FUNCTION__));
+    // free all the stuff, and then:
+    xkb_remove_plugin (plugin);
+    return 1;
 }
 
 
 static int
 destroy_machine(PluginInstance* plugin)
 {
-   machineRec* machine = plugin_machine(plugin);
-   LOCK(machine);
+    machineRec* machine = plugin_machine(plugin);
+    LOCK(machine);
 
-   delete machine->last_events;
-   DeleteCallback(&DeviceEventCallback, (CallbackProcPtr) mouse_call_back,
-                  (void*) plugin);
-   MDB(("%s: what to do?\n", __FUNCTION__));
-   return 1;
+    delete machine->last_events;
+    DeleteCallback(&DeviceEventCallback, (CallbackProcPtr) mouse_call_back,
+                   (void*) plugin);
+    MDB(("%s: what to do?\n", __FUNCTION__));
+    return 1;
 }
 
 
@@ -1431,35 +1428,35 @@ fork_plug(pointer	options,
           int		*errmaj,
           int		*errmin)
 {
-  DB(("%s\n", __FUNCTION__));
-  static struct _DevicePluginRec plugin_class =
-    {
-      // slot name,     value
-      _B(name, FORK_PLUGIN_NAME),
-      _B(instantiate, make_machine),
-      _B(ProcessEvent, ProcessEvent),
-      _B(ProcessTime, step_in_time),
-      _B(NotifyThaw, fork_thaw_notify),
-      _B(config,    machine_configure),
-      _B(getconfig, machine_configure_get),
-      _B(client_command, machine_command),
-      _B(module, NULL),
-      _B(ref_count, 0),
-      _B(stop,       stop_and_exhaust_machine),
-      _B(terminate,  destroy_machine)
-    };
-  plugin_class.ref_count = 0;
-  xkb_add_plugin(&plugin_class);
+    DB(("%s\n", __FUNCTION__));
+    static struct _DevicePluginRec plugin_class =
+        {
+            // slot name,     value
+            _B(name, FORK_PLUGIN_NAME),
+            _B(instantiate, make_machine),
+            _B(ProcessEvent, ProcessEvent),
+            _B(ProcessTime, step_in_time),
+            _B(NotifyThaw, fork_thaw_notify),
+            _B(config,    machine_configure),
+            _B(getconfig, machine_configure_get),
+            _B(client_command, machine_command),
+            _B(module, NULL),
+            _B(ref_count, 0),
+            _B(stop,       stop_and_exhaust_machine),
+            _B(terminate,  destroy_machine)
+        };
+    plugin_class.ref_count = 0;
+    xkb_add_plugin(&plugin_class);
 
-  return &plugin_class;
+    return &plugin_class;
 }
 
 
 extern "C" {
 
-void __attribute__((constructor)) on_init()
-{
-    ErrorF("%s:\n", __FUNCTION__); /* impossible */
-    fork_plug(NULL,NULL,NULL);
-}
+    void __attribute__((constructor)) on_init()
+    {
+        ErrorF("%s:\n", __FUNCTION__); /* impossible */
+        fork_plug(NULL,NULL,NULL);
+    }
 }
