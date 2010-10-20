@@ -1181,36 +1181,11 @@ ProcessEvent(PluginInstance* plugin, InternalEvent *event, Bool owner)
     DeviceIntPtr keybd = plugin->device;
     Time now = time_of(event);
 
-#define ACT_ON_ONLY_PRESS_RELEASE 0 // no, RawPress should be stored in the same queues,
-                                    // to keep the sequence.
-
-#if ACT_ON_ONLY_PRESS_RELEASE
-    if (!(press_p(event) || release_p(event)))
-    {
-        PluginInstance* next = plugin->next;
-#if DEBUG
-        if (((machineRec*) plugin_machine(plugin))->config->debug)
-        {
-            DB(("%s<<< skipping %d ... %s on %s", keysym_color,
-                event->any.type, event_names[event->any.type - 2 ],
-                keybd->name));
-            //describe_key(keybd, event);
-            DB(("%s\n", color_reset));
-        }
-#endif
-                // assert (!plugin_frozen(next));
-        PluginClass(next)->ProcessEvent(next, event, owner);
-        return;
-    };
-#endif  // ONLY_PRESS_RELEASE
-
-
-
     if (filter_config_key_maybe(plugin, event) < 0)
     {
-        if (owner)
-            xfree(event);
         // fixme: I should at least push the time of (plugin->next)!
+        if (owner)
+            free(event);
         return;
     };
     machineRec* machine = plugin_machine(plugin);
