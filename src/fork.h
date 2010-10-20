@@ -71,11 +71,11 @@ struct _fork_configuration
 
 /* states of the automaton: */
 typedef enum {
-  normal,
-  suspect,
-  verify,
-  deactivated,
-  activated
+  st_normal,
+  st_suspect,
+  st_verify,
+  st_deactivated,
+  st_activated
 } state_type;
 
 
@@ -83,39 +83,49 @@ typedef enum {
 
 typedef struct machine
 {
-  volatile int lock;           /* the mouse interrupt handler should ..... err!  `volatile'
-                                * useless mmc!  But i want to avoid any caching it.... SMP ??*/
-  unsigned char state;
-  Time suspect_time;           /* time of the 1st event in the queue. */
-   
-  KeyCode verificator;
-  Time verificator_time;       /* press of the `verificator' */
+    volatile int lock;           /* the mouse interrupt handler should ..... err!  `volatile'
+                                  * useless mmc!  But i want to avoid any caching it.... SMP ??*/
+    unsigned char state;
 
-  int time_left;		/* signed! Time to wait since the last event to the moment
+    /* To allow AR for forkable keys:
+     * When we press a key the second time in a row, we might avoid forking:
+     * So, this is for the detector:
+     *
+     * This means I cannot do this trick w/ 2 keys, only 1 is the last/considered! */
+    KeyCode last_released;
+    int last_released_time;
+
+
+    Time suspect_time;           /* time of the 1st event in the queue. */
+   
+    KeyCode verificator;
+    Time verificator_time;       /* press of the `verificator' */
+
+    int time_left;		/* signed! Time to wait since the last event to the moment
 				   when the current event queue could decide more*/
 
-  /* we cannot hold only a Bool, since when we have to reconfigure, we need the original
-     forked keycode for the release event. */
-  KeyCode          forkActive[MAX_KEYCODE];
+    /* we cannot hold only a Bool, since when we have to reconfigure, we need the original
+       forked keycode for the release event. */
+    KeyCode          forkActive[MAX_KEYCODE];
 
 
-  list_with_tail internal_queue;
-  /* Still undecided events: these events alone don't decide what event is the 1st on the
-     queue.*/
-  list_with_tail input_queue;  /* Not yet processed at all. Since we wait for external
-                                * events to resume processing (Grab is active-frozen) */
-  list_with_tail output_queue; /* We have decided, but externals don't accept, so we keep them. */
+    list_with_tail internal_queue;
+    /* Still undecided events: these events alone don't decide what event is the 1st on the
+       queue.*/
+    list_with_tail input_queue;  /* Not yet processed at all. Since we wait for external
+                                  * events to resume processing (Grab is active-frozen) */
+    list_with_tail output_queue; /* We have decided, but externals don't accept, so we keep them. */
 
 #if KEEP_PREVIOUS 
-  key_event* previous_event;
+    key_event* previous_event;
 #else
-  Time time_of_last_output;
+    Time time_of_last_output;
 #endif
 
-  last_events_type *last_events;
-  int max_last;
+    last_events_type *last_events;
+    int max_last;
 
-  fork_configuration  *config;
+    fork_configuration  *config;
 } machineRec;
 
 
