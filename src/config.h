@@ -15,7 +15,6 @@
 // I like colored tracing (in 256-color xterm)
 #define USE_COLORS 1
 
-#define KEEP_PREVIOUS 0
 #define STATIC_LAST 1
 
 #endif

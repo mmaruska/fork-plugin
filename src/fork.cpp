@@ -252,10 +252,7 @@ output_event(key_event* handle, PluginInstance* plugin)
    InternalEvent *event = handle->event;
    machineRec* machine = plugin_machine(plugin);
 
-#if (! KEEP_PREVIOUS)
    machine->time_of_last_output = time_of(event);
-#endif
-
    machine->output_queue.push(handle);
    try_to_output(plugin);
 };
@@ -521,11 +518,8 @@ step_fork_automaton_by_time(machineRec *machine, PluginInstance* plugin, Time cu
 inline Time
 time_of_previous_event(machineRec *machine, key_event *ev)
 {
-#if KEEP_PREVIOUS
-    return time_of(ev->previous->event);
-#else
+    // fixme: look at the history
     return machine->time_of_last_output;
-#endif
 }
 
 
@@ -1228,16 +1222,6 @@ ProcessEvent(PluginInstance* plugin, InternalEvent *event, Bool owner)
     if (!ev)			// memory problems
         return;
 
-#if KEEP_PREVIOUS
-    // we have a pointer to the previous event:
-    // so after we have processed an event, we have to keep it. (not free() it)
-    // But we keep some events anyway. but then we must not use this pointer.
-    // or nullify when free-ing the destination.
-    ev->previous = machine->previous_event;
-    machine->previous_event = ev;
-#endif
-
-
 #if DEBUG
     if (((machineRec*) plugin_machine(plugin))->config->debug) {
         DB(("%s>>> ", key_io_color));
@@ -1413,14 +1397,7 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
    config->debug = 1;
    forking_machine->config = config;
 
-#if KEEP_PREVIOUS
-   forking_machine->previous_event = (key_event*)mmalloc(sizeof(key_event));
-   // bug:
-   forking_machine->previous_event->event = (InternalEvent*) mmalloc(sizeof(InternalEvent));
-   forking_machine->previous_event->event->u.keyButtonPointer.time = 0; // let's hope:
-#else
    forking_machine->time_of_last_output = 0;
-#endif
 
    plugin->data = (void*) forking_machine;
    ErrorF("%s: returning %d\n", __FUNCTION__, Success);

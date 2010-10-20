@@ -116,11 +116,7 @@ typedef struct machine
                                   * events to resume processing (Grab is active-frozen) */
     list_with_tail output_queue; /* We have decided, but externals don't accept, so we keep them. */
 
-#if KEEP_PREVIOUS 
-    key_event* previous_event;
-#else
     Time time_of_last_output;
-#endif
 
     last_events_type *last_events;
     int max_last;
