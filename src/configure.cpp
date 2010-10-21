@@ -77,7 +77,7 @@ machine_switch_config(PluginInstance* plugin, machineRec* machine,int id)
         machine->config = new_current; //     -> n
 
         DB(("switching configs %d -> %d\n", machine->config->id, id));
-        replay_events(plugin, 0, FALSE);
+        replay_events(plugin, FALSE);
     } else
     {
         ErrorF("config remains %d\n", machine->config->id);

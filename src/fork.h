@@ -39,7 +39,7 @@ typedef int keycode_parameter_matrix[MAX_KEYCODE][MAX_KEYCODE];
 
 
 /* we can have a (linked) list of configs! */
-typedef struct _fork_configuration fork_configuration; 
+typedef struct _fork_configuration fork_configuration;
 
 
 struct _fork_configuration
@@ -51,7 +51,7 @@ struct _fork_configuration
 
   /* we don't consider an overlap, until this ms.
      fixme: we need better. a ration between `before'/`overlap'/`after' */
-  keycode_parameter_matrix overlap_tolerance; 
+  keycode_parameter_matrix overlap_tolerance;
 
   /* after how many m-secs, we decide for the modifier.
      Should be around the key-repeatition rate (1st pause) */
@@ -95,18 +95,20 @@ typedef struct machine
     KeyCode last_released;
     int last_released_time;
 
-
-    Time suspect_time;           /* time of the 1st event in the queue. */
-   
+    KeyCode suspect;
     KeyCode verificator;
-    Time verificator_time;       /* press of the `verificator' */
 
-    int time_left;		/* signed! Time to wait since the last event to the moment
-				   when the current event queue could decide more*/
+    // these are "registers"
+    Time suspect_time;           /* time of the 1st event in the queue. */
+    Time verificator_time;       /* press of the `verificator' */
+    // calculated:
+    Time decision_time;		/* Time to wait... so that the current event queue could decide more*/
+    Time current_time;
 
     /* we cannot hold only a Bool, since when we have to reconfigure, we need the original
        forked keycode for the release event. */
     KeyCode          forkActive[MAX_KEYCODE];
+
 
 
     list_with_tail internal_queue;
@@ -116,9 +118,10 @@ typedef struct machine
                                   * events to resume processing (Grab is active-frozen) */
     list_with_tail output_queue; /* We have decided, but externals don't accept, so we keep them. */
 
-    Time time_of_last_output;
 
-    last_events_type *last_events;
+    Time time_of_last_output;   // .- trick
+
+    last_events_type *last_events; // history
     int max_last;
 
     fork_configuration  *config;
@@ -129,7 +132,7 @@ typedef struct machine
 extern fork_configuration* machine_new_config(void);
 extern void machine_switch_config(PluginInstance* plugin, machineRec* machine,int id);
 extern int machine_set_last_events_count(machineRec* machine, int new_max);
-extern void replay_events(PluginInstance* plugin, Time current_time, Bool force); 
+extern void replay_events(PluginInstance* plugin, Bool force);
 
 extern int dump_last_events_to_client(PluginInstance* plugin, ClientPtr client, int n);
 
@@ -143,7 +146,7 @@ enum {
 // I want to track the memory usage, and warn when it's too high.
 extern size_t memory_balance;
 
-inline 
+inline
 void* mmalloc(size_t size)
 {
   void* p = malloc(size);
