@@ -225,18 +225,12 @@ try_to_output(PluginInstance* plugin)
         if (!queue.empty())
         {
             now = time_of(queue.front()->event);
-        }
-        else if (!machine->internal_queue.empty())
-        {
+        } else if (!machine->internal_queue.empty()) {
             now = time_of(machine->internal_queue.front()->event);
-        }
-        else if (!machine->input_queue.empty())
-        {
+        } else if (!machine->input_queue.empty()) {
             now = time_of(machine->input_queue.front()->event);
-        }
-        else
-        {
-            now = 0;
+        } else {
+            now = machine->current_time;
         }
 
         if (now)
@@ -257,6 +251,8 @@ output_event(key_event* handle, PluginInstance* plugin)
     InternalEvent *event = handle->event;
     machineRec* machine = plugin_machine(plugin);
 
+    // only
+    // if (press_p(event) || release_p(event))
     machine->time_of_last_output = time_of(event);
     machine->output_queue.push(handle);
     try_to_output(plugin);
@@ -483,9 +479,7 @@ key_pressed_in_parallel(machineRec *machine, Time current_time)
     if (decision_time <= current_time)
     {
         return 0;
-    }
-    else
-    {
+    } else {
         MDB(("time: overlay interval = %dms elapsed so far =%dms\n", overlap_tolerance,
              (int) (current_time - machine->verificator_time)));
 
@@ -499,30 +493,15 @@ key_pressed_in_parallel(machineRec *machine, Time current_time)
 }
 
 
-
-
-
 static void
 step_fork_automaton_by_time(machineRec *machine, PluginInstance* plugin, Time current_time)
 {
-    if ((machine->state == st_normal) || (machine->state == st_deactivated)) {
-        DB(("%s: unexpected: %s!", __FUNCTION__, describe_machine_state(machine)));
-        return;
-    };
-
-    list_with_tail &queue = machine->internal_queue;
-    if (queue.empty()){
-        DB(("%s: the internal queue is empty. Most likely the last event caused freeze,"
-            "and replay_events didn't do any work\thowever, this timer is BUG\n", __FUNCTION__));
-        /* fixme! now what?  */
-    }
-
     // confirm fork:
     int reason;
     MDB(("%s%s%s state: %s, queue: %d, time: %u key: %d\n",
          fork_color, __FUNCTION__, color_reset,
          describe_machine_state (machine),
-         queue.length (), (int)current_time, machine->suspect));
+         machine->internal_queue.length (), (int)current_time, machine->suspect));
 
     /* First, I try the simple (fork-by-one-keys).
      * If that works, -> fork! Otherwise, I try w/ 2-key forking, overlapping.
@@ -531,7 +510,8 @@ step_fork_automaton_by_time(machineRec *machine, PluginInstance* plugin, Time cu
     if (0 == (machine->decision_time = key_pressed_too_long(machine, current_time)))
     {
         reason = reason_total;
-        goto confirm_fork;
+        activate_fork(machine, plugin);
+        return;
     };
 
     /* To test 2 keys overlap, we need the 2nd key: a verificator! */
@@ -542,7 +522,8 @@ step_fork_automaton_by_time(machineRec *machine, PluginInstance* plugin, Time cu
         if (decision_time == 0)
         {
             reason = reason_overlap;
-            goto confirm_fork;
+            activate_fork(machine, plugin);
+            return;
         }
 
         if (decision_time < machine->decision_time)
@@ -553,15 +534,8 @@ step_fork_automaton_by_time(machineRec *machine, PluginInstance* plugin, Time cu
 
 
     /* So, we were woken too early. */
-    assert (machine->decision_time > current_time);
-    /* MDB */
     DB(("*** %s: returning with some more time-to-wait: %u (prematurely waken)\n", __FUNCTION__,
-        machine->decision_time));
-    return;
-
-  confirm_fork:
-    // machine->decision_time = 0;
-    activate_fork(machine, plugin);
+        machine->decision_time - current_time));
     return;
 }
 
@@ -578,6 +552,8 @@ time_of_previous_event(machineRec *machine, key_event *ev)
 
 
 /** apply_event_to_{STATE} */
+
+#define CLEAR_INTERVAL 0
 
 static void
 apply_event_to_normal(machineRec *machine, key_event *ev, PluginInstance* plugin)
@@ -596,7 +572,6 @@ apply_event_to_normal(machineRec *machine, key_event *ev, PluginInstance* plugin
 
     // if this key might start a fork....
     if (press_p(event) && (forkable_p(config, key))
-#define CLEAR_INTERVAL 0
 #if CLEAR_INTERVAL
         // this is not used!
 	// fixme:  the clear interval should just hint, not preclude!
@@ -623,37 +598,37 @@ apply_event_to_normal(machineRec *machine, key_event *ev, PluginInstance* plugin
         /* So, unless we see the .- trick, we do suspect: */
         if (!key_forked(machine, key) &&
             ((machine->last_released != key ) ||
-            /*todo: time_difference_more(machine->last_released_time,simulated_time, config->repeat_max) */
-            (int)(simulated_time - machine->last_released_time) > config->repeat_max))
-        {
-        change_state(machine, st_suspect);
-        machine->suspect = key;
-        machine->suspect_time = time_of(event);
-        machine->decision_time = machine->suspect_time + verification_interval_of(machine->config, key, 0);
-        do_enqueue_event(machine, ev);
-        return;
-    } else {
-        // .- trick: (fixme: or self-forked)
-        MDB(("re-pressed very quickly\n"));
-        machine->forkActive[key] = key; // fixme: why??
-        EMIT_EVENT(ev);
-        return;
-    };
-    }
-    else if (release_p(event) && (key_forked(machine, key)))
+             /*todo: time_difference_more(machine->last_released_time,simulated_time, config->repeat_max) */
+             (int)(simulated_time - machine->last_released_time) > config->repeat_max))
+        {                       /* Emacs indenting bug: */
+            change_state(machine, st_suspect);
+            machine->suspect = key;
+            machine->suspect_time = time_of(event);
+            machine->decision_time = machine->suspect_time +
+                verification_interval_of(machine->config, key, 0);
+            do_enqueue_event(machine, ev);
+            return;
+        } else {
+            // .- trick: (fixme: or self-forked)
+            MDB(("re-pressed very quickly\n"));
+            machine->forkActive[key] = key; // fixme: why??
+            EMIT_EVENT(ev);
+            return;
+        };
+    } else if (release_p(event) && (key_forked(machine, key)))
     {
 	MDB(("releasing forked key\n"));
 	// fixme:  we should see if the fork was `used'.
 	if (config->consider_forks_for_repeat){
-        // C-f   f long becomes fork. now we wanted to repeat it....
-        machine->last_released = detail_of(event);
-        machine->last_released_time = time_of(event);
-    } else {
-        // imagine mouse-button during the short 1st press. Then
-        // the 2nd press ..... should not relate the the 1st one.
-        machine->last_released = 0;
-        machine->last_released_time = 0;
-    }
+            // C-f   f long becomes fork. now we wanted to repeat it....
+            machine->last_released = detail_of(event);
+            machine->last_released_time = time_of(event);
+        } else {
+            // imagine mouse-button during the short 1st press. Then
+            // the 2nd press ..... should not relate the the 1st one.
+            machine->last_released = 0;
+            machine->last_released_time = 0;
+        }
 	/* we finally release a (self-)forked key. Rewrite back the keycode.
 	 *
 	 * fixme: do i do this in other machine states?
@@ -664,27 +639,25 @@ apply_event_to_normal(machineRec *machine, key_event *ev, PluginInstance* plugin
 	// say of the machine!!!
 	machine->forkActive[key] = 0;
 	EMIT_EVENT(ev);
-    }
-    else
-    {
+    } else {
 	if (release_p (event))
 	{
-        machine->last_released = detail_of(event);
-        machine->last_released_time = time_of(event);
-    }
+            machine->last_released = detail_of(event);
+            machine->last_released_time = time_of(event);
+        }
 #if CLEAR_INTERVAL
 	if (time_difference_less(time_of_previous_event(machine, ev),
-            time_of(event), config->clear_interval))
+                                 time_of(event), config->clear_interval))
 	{
-        DB(("%d < %d = clear interval\n",
-            (int)(time_of(event) -
-            time_of_previous_event(machine, ev)),
-            config->clear_interval));
-    };
+            DB(("%d < %d = clear interval\n",
+                (int)(time_of(event) -
+                      time_of_previous_event(machine, ev)),
+                config->clear_interval));
+        };
 #endif
 	// pass along the un-forkable event.
 	EMIT_EVENT(ev);
-    }
+    };
 }
 
 
@@ -713,10 +686,7 @@ apply_event_to_suspect(machineRec *machine, key_event *ev, PluginInstance* plugi
     {
         do_confirm_fork(machine, ev, plugin);
         return;
-    } else {
-
     };
-
 
     /* So, we now have a second key, since the duration of 1 key was not enough. */
     if (release_p(event))
@@ -1009,7 +979,8 @@ try_to_play(PluginInstance* plugin, Bool force)
         else
         {
             // at the end ... add the final time event:
-            if (machine->current_time && (machine->state != st_normal)){
+            if (machine->current_time && !final_state_p(machine->state))
+            {
                 step_fork_automaton_by_time(machine, plugin, machine->current_time);
                 if (machine->decision_time)
                     break; /* `FINISH' */
