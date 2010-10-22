@@ -726,7 +726,7 @@ apply_event_to_suspect(machineRec *machine, key_event *ev, PluginInstance* plugi
              (int)(simulated_time  -  machine->suspect_time)));
         if (key == machine->suspect){
             machine->decision_time = 0; // might be useless!
-            do_confirm_non_fork(machine, ev, plugin);
+            do_confirm_non_fork_by(machine, ev, plugin);
             return;
             /* fixme:  here we confirm, that it was not a user error.....
                bad synchro. i.e. the suspected key was just released  */
