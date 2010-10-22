@@ -329,6 +329,37 @@ change_state(machineRec* machine, state_type new_state)
          state_description[new_state], color_reset));
 }
 
+void
+reverse_slice(list_with_tail &pre, list_with_tail &post)
+{
+    // Slice with a reversed semantic:
+    // A.slice(B) --> ()  (AB)
+    // traditional is (AB) ()
+    pre.slice(post);
+    pre.swap(post);
+}
+
+#define final_state_p(state)  ((state == st_deactivated) || (state == st_activated))
+
+inline void
+rewind_machine(machineRec* machine)
+{
+    assert (final_state_p(machine->state));
+
+    /* reset the machine */
+    MDB(("== Resetting the fork machine (internal %d, input %d)\n",
+         machine->internal_queue.length (),
+         machine->input_queue.length ()));
+
+    change_state(machine,st_normal);
+    machine->verificator = 0;
+
+    if (!(machine->internal_queue.empty())) {
+        reverse_slice(machine->internal_queue, machine->input_queue);
+        MDB(("now in input_queue: %d\n", machine->input_queue.length ()));
+    }
+};
+
 
 /* Fork the 1st element on the internal_queue. Remove it from the queue
  * and push to the output_queue.
@@ -360,6 +391,8 @@ activate_fork(machineRec *machine, PluginInstance* plugin)
          machine->config->fork_keycode[forked_key],
          machine->internal_queue.length (),
          describe_machine_state(machine)));
+
+    rewind_machine(machine);
 }
 
 
@@ -405,7 +438,7 @@ do_enqueue_event(machineRec *machine, key_event *ev)
 
 // so the ev proves, that the current event is not forked.
 static void
-do_confirm_non_fork(machineRec *machine, key_event *ev, PluginInstance* plugin)
+do_confirm_non_fork_by(machineRec *machine, key_event *ev, PluginInstance* plugin)
 {
     assert(machine->decision_time == 0);
     change_state(machine, st_deactivated);
@@ -415,6 +448,8 @@ do_confirm_non_fork(machineRec *machine, key_event *ev, PluginInstance* plugin)
     key_event* non_forked_event = machine->internal_queue.pop();
     MDB(("this is not a fork! %d\n", detail_of(non_forked_event->event)));
     EMIT_EVENT(non_forked_event);
+
+    rewind_machine(machine);
 }
 
 // so EV confirms fork of the current event.
@@ -919,19 +954,6 @@ step_fork_automaton_by_key(machineRec *machine, key_event *ev, PluginInstance* p
 }
 
 
-#define final_state_p(state)  ((state == st_deactivated) || (state == st_activated))
-
-void
-reverse_slice(list_with_tail &pre, list_with_tail &post)
-{
-    // Slice with a reversed semantic:
-    // A.slice(B) --> ()  (AB)
-    // traditional is (AB) ()
-    pre.slice(post);
-    pre.swap(post);
-}
-
-
 /*
  * Take from input_queue, + the current_time + force   -> run the machine.
  * After that you have to:   cancel the timer!!!
@@ -950,21 +972,6 @@ try_to_play(PluginInstance* plugin, Bool force)
 
 
     while (!plugin_frozen(plugin->next)) {
-
-        if (final_state_p(machine->state)){
-            /* reset the machine */
-            MDB(("== Resetting the fork machine (internal %d, input %d)\n",
-                 machine->internal_queue.length (),
-                 input_queue.length ()));
-
-            change_state(machine,st_normal);
-            machine->verificator = 0;
-
-            if (!(machine->internal_queue.empty())) {
-                reverse_slice(machine->internal_queue, input_queue);
-                MDB(("now in input_queue: %d\n", input_queue.length ()));
-            }
-        };
 
         if (! input_queue.empty())
         {
