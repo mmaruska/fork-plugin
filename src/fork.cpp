@@ -248,7 +248,6 @@ output_event(key_event* ev, PluginInstance* plugin)
 {
     assert(ev->event);
     machineRec* machine = plugin_machine(plugin);
-    machine->time_of_last_output = time_of(ev->event);
     machine->output_queue.push(ev);
     try_to_output(plugin);
 };
@@ -614,7 +613,7 @@ apply_event_to_normal(machineRec *machine, key_event *ev, PluginInstance* plugin
         if (!key_forked(machine, key) &&
             ((machine->last_released != key ) ||
              /*todo: time_difference_more(machine->last_released_time,simulated_time, config->repeat_max) */
-             (simulated_time - machine->last_released_time) > config->repeat_max))
+             (simulated_time - machine->last_released_time) > (Time) config->repeat_max))
         {                       /* Emacs indenting bug: */
             change_state(machine, st_suspect);
             machine->suspect = key;
@@ -825,21 +824,17 @@ apply_event_to_verify(machineRec *machine, key_event *ev, PluginInstance* plugin
                                       machine->verificator)));
         machine->decision_time = 0; // useless fixme!
         do_confirm_non_fork_by(machine, ev, plugin);
-        return;
 
     } else if (release_p(event) && (machine->verificator == key)){
-        /* limit of tolerance of the error */
+        // todo: we might be interested in percentage, Then here we should do the work!
 
-        // if (time_difference_more(machine->verificator_time, time, overlap_tolerance)){
-        machine->verificator = 0; // fixme: no state change??
-        // we _should_ take the next possible verificator ?
-        // false: we have to wait, maybe the key is indeed a modifier. This verifier is not enough, though
+        // we should change state:
+        change_state(machine,st_suspect);
+        machine->verificator = 0;   // we _should_ take the next possible verificator
         do_enqueue_event(machine, ev);
-        return;
     } else {               // fixme: a (repeated) press of the verificator ?
         // fixme: we pressed another key: but we should tell XKB to repeat it !
         do_enqueue_event(machine, ev);
-        return;
     };
 }
 
