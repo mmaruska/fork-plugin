@@ -1277,7 +1277,7 @@ fork_thaw_notify(PluginInstance* plugin, Time now)
     if (!plugin_frozen(plugin->next) && PluginClass(plugin->prev)->NotifyThaw)
     {
         /* thaw the previous! */
-        set_wakeup_time(plugin, now);
+        set_wakeup_time(plugin, machine->current_time);
         UNLOCK(machine);
         MDB(("%s -- sending thaw Notify upwards!\n", __FUNCTION__));
         /* fixme:  Tail-recursion! */
