@@ -92,7 +92,7 @@ typedef struct machine
      * So, this is for the detector:
      *
      * This means I cannot do this trick w/ 2 keys, only 1 is the last/considered! */
-    KeyCode last_released;
+    KeyCode last_released; // .- trick
     int last_released_time;
 
     KeyCode suspect;
@@ -117,9 +117,6 @@ typedef struct machine
     list_with_tail input_queue;  /* Not yet processed at all. Since we wait for external
                                   * events to resume processing (Grab is active-frozen) */
     list_with_tail output_queue; /* We have decided, but externals don't accept, so we keep them. */
-
-
-    Time time_of_last_output;   // .- trick
 
     last_events_type *last_events; // history
     int max_last;

@@ -240,7 +240,6 @@ try_to_output(PluginInstance* plugin)
         MDB(("%s: still %d events to output\n", __FUNCTION__, queue.length ()));
 }
 
-#define CLEAR_INTERVAL 0
 // Another event has been determined. So:
 // todo:  possible emit a (notification) event immediately,
 // ... and push the event down the pipeline, when not frozen.
@@ -249,7 +248,7 @@ output_event(key_event* ev, PluginInstance* plugin)
 {
     assert(ev->event);
     machineRec* machine = plugin_machine(plugin);
-    machine->time_of_last_output = time_of(ev->event);    // needed only #if CLEAR_INTERVAL
+    machine->time_of_last_output = time_of(ev->event);
     machine->output_queue.push(ev);
     try_to_output(plugin);
 };
@@ -572,14 +571,6 @@ step_fork_automaton_by_time(machineRec *machine, PluginInstance* plugin, Time cu
 }
 
 
-inline Time
-time_of_previous_event(machineRec *machine, key_event *ev)
-{
-    // fixme: look at the history
-    return machine->time_of_last_output;
-}
-
-
 #define MOUSE_EMULATION_ON(xkb) (xkb->ctrls->enabled_ctrls & XkbMouseKeysMask)
 
 
@@ -604,14 +595,6 @@ apply_event_to_normal(machineRec *machine, key_event *ev, PluginInstance* plugin
 
     // if this key might start a fork....
     if (press_p(event) && forkable_p(config, key)
-#if CLEAR_INTERVAL
-        // this is not used!
-        // fixme:  the clear interval should just hint, not preclude!
-        && !time_difference_less(
-            time_of_previous_event(machine, ev),
-            time_of(event),
-            config->clear_interval)
-#endif
         /* fixme: is this w/ 1-event precision? (i.e. is the xkb-> updated synchronously) */
         /* todo:  does it have a mouse-related action? */
         && !(MOUSE_EMULATION_ON(xkb)))
@@ -1382,8 +1365,6 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
 
     config->debug = 1;
     forking_machine->config = config;
-
-    forking_machine->time_of_last_output = 0;
 
     plugin->data = (void*) forking_machine;
     ErrorF("%s: returning %d\n", __FUNCTION__, Success);
