@@ -489,7 +489,7 @@ key_pressed_in_parallel(machineRec *machine, Time current_time)
 }
 
 
-static void
+static bool
 step_fork_automaton_by_time(machineRec *machine, PluginInstance* plugin, Time current_time)
 {
     // confirm fork:
@@ -507,7 +507,7 @@ step_fork_automaton_by_time(machineRec *machine, PluginInstance* plugin, Time cu
     {
         reason = reason_total;
         activate_fork(machine, plugin);
-        return;
+        return true;
     };
 
     /* To test 2 keys overlap, we need the 2nd key: a verificator! */
@@ -519,7 +519,7 @@ step_fork_automaton_by_time(machineRec *machine, PluginInstance* plugin, Time cu
         {
             reason = reason_overlap;
             activate_fork(machine, plugin);
-            return;
+            return true;
         }
 
         if (decision_time < machine->decision_time)
@@ -532,7 +532,7 @@ step_fork_automaton_by_time(machineRec *machine, PluginInstance* plugin, Time cu
     /* So, we were woken too early. */
     DB(("*** %s: returning with some more time-to-wait: %u (prematurely waken)\n", __FUNCTION__,
         machine->decision_time - current_time));
-    return;
+    return false;
 }
 
 
@@ -975,16 +975,16 @@ try_to_play(PluginInstance* plugin, Bool force)
         else
         {
             // at the end ... add the final time event:
-            if (machine->current_time && !final_state_p(machine->state))
+            if (machine->current_time && (machine->state != st_normal)) // was final_state_p
             {
-                step_fork_automaton_by_time(machine, plugin, machine->current_time);
-                if (machine->decision_time)
-                    break; /* `FINISH' */
+                if (!step_fork_automaton_by_time(machine, plugin, machine->current_time))
+                    // If this time helped to decide -> machine rewound, we have to try again.
+                    // Otherwise, this is the end for now:
+                    return;
             } else if (force && (machine->state != st_normal)){
                 step_fork_automaton_by_force (machine, plugin);
-            } else break; /* `FINISH' */
-            // didn't help -> break:
-            // error:  consider the time !!
+            } else
+                return;
         }
     }
     /* assert(!plugin_frozen(plugin->next)   ---> queue_empty(machine->input_queue)) */
