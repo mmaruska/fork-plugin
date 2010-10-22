@@ -630,7 +630,7 @@ apply_event_to_normal(machineRec *machine, key_event *ev, PluginInstance* plugin
         if (!key_forked(machine, key) &&
             ((machine->last_released != key ) ||
              /*todo: time_difference_more(machine->last_released_time,simulated_time, config->repeat_max) */
-             (int)(simulated_time - machine->last_released_time) > config->repeat_max))
+             (simulated_time - machine->last_released_time) > config->repeat_max))
         {                       /* Emacs indenting bug: */
             change_state(machine, st_suspect);
             machine->suspect = key;
