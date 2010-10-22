@@ -754,7 +754,7 @@ apply_event_to_suspect(machineRec *machine, key_event *ev, PluginInstance* plugi
                 MDB(("The suspected key is configured to repeat, so ...\n"));
                 machine->forkActive[machine->suspect] = machine->suspect;
                 machine->decision_time = 0;
-                do_confirm_non_fork(machine, ev, plugin);
+                do_confirm_non_fork_by(machine, ev, plugin);
                 return;
             } else {
                 // fixme: this keycode is repeating, but we still don't know what to do.
