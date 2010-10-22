@@ -853,7 +853,7 @@ apply_event_to_verify(machineRec *machine, key_event *ev, PluginInstance* plugin
                                       machine->suspect,
                                       machine->verificator)));
         machine->decision_time = 0; // useless fixme!
-        do_confirm_non_fork(machine, ev, plugin);
+        do_confirm_non_fork_by(machine, ev, plugin);
         return;
 
     } else if (release_p(event) && (machine->verificator == key)){
