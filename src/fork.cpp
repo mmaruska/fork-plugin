@@ -4,7 +4,7 @@
  */
 
 
-/*
+/* How we operate:
  *
  *   ProcessEvent ->                                      /  step_by_key
  *                    change the `queue'   -> try_to_play --- step_by_time
@@ -207,7 +207,7 @@ try_to_output(PluginInstance* plugin)
          machine->internal_queue.length (),
          machine->input_queue.length ()));
 
-    while ((!plugin_frozen(next)) && (!queue.empty ())) {
+    while((!plugin_frozen(next)) && (!queue.empty ())) {
         key_event* ev = queue.pop();
 
         machine->last_events->push_back(make_archived_events(ev));
@@ -220,7 +220,7 @@ try_to_output(PluginInstance* plugin)
     };
     if (!plugin_frozen(next))
     {
-        // todo: we should push the time!
+        // we should push the time!
         Time now;
         if (!queue.empty())
         {
@@ -244,23 +244,18 @@ try_to_output(PluginInstance* plugin)
 // todo:  possible emit a (notification) event immediately,
 // ... and push the event down the pipeline, when not frozen.
 static void
-output_event(key_event* handle, PluginInstance* plugin)
+output_event(key_event* ev, PluginInstance* plugin)
 {
-    assert(handle->event);
-
-    InternalEvent *event = handle->event;
+    assert(ev->event);
     machineRec* machine = plugin_machine(plugin);
-
-    // only
-    // if (press_p(event) || release_p(event))
-    machine->time_of_last_output = time_of(event);
-    machine->output_queue.push(handle);
+    machine->time_of_last_output = time_of(ev->event);    // needed only #if CLEAR_INTERVAL
+    machine->output_queue.push(ev);
     try_to_output(plugin);
 };
 
 
-// note, that after this EV could point to a deallocated memory!
-// bad macro: evaluates EV twice.
+/* note, that after this EV could point to a deallocated memory!
+ * bad macro: evaluates EV twice. */
 #define EMIT_EVENT(ev) {output_event(ev, plugin); ev=NULL;}
 
 /**
@@ -350,6 +345,7 @@ activate_fork(machineRec *machine, PluginInstance* plugin)
     key_event* ev = queue.pop();
 
     KeyCode forked_key = detail_of(ev->event);
+    // assert (forked_key == machine->suspect)
 
     /* change the keycode, but remember the original: */
     ev->forked =  forked_key;
