@@ -240,6 +240,7 @@ try_to_output(PluginInstance* plugin)
         MDB(("%s: still %d events to output\n", __FUNCTION__, queue.length ()));
 }
 
+#define CLEAR_INTERVAL 0
 // Another event has been determined. So:
 // todo:  possible emit a (notification) event immediately,
 // ... and push the event down the pipeline, when not frozen.
@@ -584,7 +585,7 @@ time_of_previous_event(machineRec *machine, key_event *ev)
 
 /** apply_event_to_{STATE} */
 
-#define CLEAR_INTERVAL 0
+
 
 static void
 apply_event_to_normal(machineRec *machine, key_event *ev, PluginInstance* plugin)
@@ -602,18 +603,18 @@ apply_event_to_normal(machineRec *machine, key_event *ev, PluginInstance* plugin
     assert(machine->internal_queue.empty());
 
     // if this key might start a fork....
-    if (press_p(event) && (forkable_p(config, key))
+    if (press_p(event) && forkable_p(config, key)
 #if CLEAR_INTERVAL
         // this is not used!
-	// fixme:  the clear interval should just hint, not preclude!
-	&& !time_difference_less(
-	    time_of_previous_event(machine, ev),
-	    time_of(event),
-	    config->clear_interval)
+        // fixme:  the clear interval should just hint, not preclude!
+        && !time_difference_less(
+            time_of_previous_event(machine, ev),
+            time_of(event),
+            config->clear_interval)
 #endif
         /* fixme: is this w/ 1-event precision? (i.e. is the xkb-> updated synchronously) */
         /* todo:  does it have a mouse-related action? */
-	&& !(MOUSE_EMULATION_ON(xkb)))
+        && !(MOUSE_EMULATION_ON(xkb)))
     {
         /* Either suspect, or detect .- trick to suppress fork */
 
@@ -648,9 +649,9 @@ apply_event_to_normal(machineRec *machine, key_event *ev, PluginInstance* plugin
         };
     } else if (release_p(event) && (key_forked(machine, key)))
     {
-	MDB(("releasing forked key\n"));
-	// fixme:  we should see if the fork was `used'.
-	if (config->consider_forks_for_repeat){
+        MDB(("releasing forked key\n"));
+        // fixme:  we should see if the fork was `used'.
+        if (config->consider_forks_for_repeat){
             // C-f   f long becomes fork. now we wanted to repeat it....
             machine->last_released = detail_of(event);
             machine->last_released_time = time_of(event);
@@ -660,36 +661,27 @@ apply_event_to_normal(machineRec *machine, key_event *ev, PluginInstance* plugin
             machine->last_released = 0;
             machine->last_released_time = 0;
         }
-	/* we finally release a (self-)forked key. Rewrite back the keycode.
-	 *
-	 * fixme: do i do this in other machine states?
-	 */
-	event->device_event.detail.key = machine->forkActive[key];
+        /* we finally release a (self-)forked key. Rewrite back the keycode.
+         *
+         * fixme: do i do this in other machine states?
+         */
+        event->device_event.detail.key = machine->forkActive[key];
 
-	// this is the state (of the keyboard, not the machine).... better to
-	// say of the machine!!!
-	machine->forkActive[key] = 0;
-	EMIT_EVENT(ev);
+        // this is the state (of the keyboard, not the machine).... better to
+        // say of the machine!!!
+        machine->forkActive[key] = 0;
+        EMIT_EVENT(ev);
     } else {
-	if (release_p (event))
-	{
+        if (release_p (event))
+        {
             machine->last_released = detail_of(event);
             machine->last_released_time = time_of(event);
-        }
-#if CLEAR_INTERVAL
-	if (time_difference_less(time_of_previous_event(machine, ev),
-                                 time_of(event), config->clear_interval))
-	{
-            DB(("%d < %d = clear interval\n",
-                (int)(time_of(event) -
-                      time_of_previous_event(machine, ev)),
-                config->clear_interval));
         };
-#endif
-	// pass along the un-forkable event.
-	EMIT_EVENT(ev);
+        // pass along the un-forkable event.
+        EMIT_EVENT(ev);
     };
-}
+};
+
 
 
 /*  First (press)
@@ -724,7 +716,7 @@ apply_event_to_suspect(machineRec *machine, key_event *ev, PluginInstance* plugi
     {
         MDB(("suspect/release: suspected = %d, time diff: %d\n", machine->suspect,
              (int)(simulated_time  -  machine->suspect_time)));
-        if (key == machine->suspect){
+        if (key == machine->suspect) {
             machine->decision_time = 0; // might be useless!
             do_confirm_non_fork_by(machine, ev, plugin);
             return;
@@ -738,11 +730,7 @@ apply_event_to_suspect(machineRec *machine, key_event *ev, PluginInstance* plugi
     } else {
         if (!press_p (event))
         {
-#if 0
-            DB(("!!! should be pressKey, but is .. %s on %s",
-                event_names[event->any.type - 2 ],
-                keybd->name));
-#endif
+            // RawPress & Device events.
             do_enqueue_event(machine,ev);
             return;
         }
@@ -1385,6 +1373,8 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
 
     UNLOCK(forking_machine);
     forking_machine->decision_time = 0;
+    forking_machine->current_time = 0;
+
 
     for (int i=0;i<256;i++){                   // keycode 0 is unused!
         forking_machine->forkActive[i] = 0; /* 0 = not active */
@@ -1475,9 +1465,9 @@ fork_plug(pointer	options,
 
 extern "C" {
 
-    void __attribute__((constructor)) on_init()
-    {
-        ErrorF("%s:\n", __FUNCTION__); /* impossible */
-        fork_plug(NULL,NULL,NULL);
-    }
+void __attribute__((constructor)) on_init()
+{
+    ErrorF("%s:\n", __FUNCTION__); /* impossible */
+    fork_plug(NULL,NULL,NULL);
+}
 }
