@@ -25,7 +25,8 @@ extern "C" {
 
 #include "event_ops.h"
 
-
+#define TIME_FMT  "u"
+#define SIZE_FMT  "lu"
 
 
 archived_event*
@@ -159,7 +160,7 @@ dump_event(KeyCode key, KeyCode fork, bool press, Time event_time, XkbDescPtr xk
 
     ErrorF("%s %d (%d)" ,(press?" ]":"[ "),
 	   (int)key, (int) fork);
-    ErrorF(" %.4s (%5.5s) %lu\t%lu\n",
+    ErrorF(" %.4s (%5.5s) %" TIME_FMT "\t%" TIME_FMT "\n",
 	   ksname, sname,
 	   event_time,
 	   event_time - prev_time);
@@ -202,7 +203,7 @@ void
 dump_last_events(PluginInstance* plugin)
 {
   machineRec* machine = plugin_machine(plugin);
-  ErrorF("%s(%s) %d\n",__FUNCTION__, plugin->device->name,
+  ErrorF("%s(%s) %" SIZE_FMT "\n",__FUNCTION__, plugin->device->name,
          machine->last_events->size());
 
   event_dumper function(plugin);
