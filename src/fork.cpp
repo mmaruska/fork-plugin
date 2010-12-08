@@ -234,7 +234,13 @@ try_to_output(PluginInstance* plugin)
         }
 
         if (now)
+        {
+            // this can thaw, freeze,?
+            UNLOCK(machine);
             PluginClass(plugin->next)->ProcessTime(plugin->next, now);
+            LOCK(machine);
+        }
+        
     }
     if (!queue.empty ())
         MDB(("%s: still %d events to output\n", __FUNCTION__, queue.length ()));
@@ -460,8 +466,8 @@ do_confirm_fork(machineRec *machine, key_event *ev, PluginInstance* plugin)
     /* fixme: ev is the just-read event. But that is surely not the head
        of queue (which is confirmed to fork) */
     DB(("confirm:\n"));
-    activate_fork(machine, plugin);
     machine->internal_queue.push(ev);
+    activate_fork(machine, plugin);
 }
 
 /*
@@ -564,7 +570,7 @@ step_fork_automaton_by_time(machineRec *machine, PluginInstance* plugin, Time cu
 
 
     /* So, we were woken too early. */
-    DB(("*** %s: returning with some more time-to-wait: %u (prematurely waken)\n", __FUNCTION__,
+    DB(("*** %s: returning with some more time-to-wait: %u (prematurely woken)\n", __FUNCTION__,
         machine->decision_time - current_time));
     return false;
 }
@@ -1107,8 +1113,15 @@ set_wakeup_time(PluginInstance* plugin, Time now)
 {
     machineRec* machine = plugin_machine(plugin);
     CHECK_LOCKED(machine);
-    plugin->wakeup_time = (machine->decision_time) ? machine->decision_time:
-        plugin->next->wakeup_time;
+    if (!((machine->state == st_verify)
+          || (machine->state == st_suspect)))
+        plugin->wakeup_time = plugin->next->wakeup_time;
+    else
+        // we are indeed waiting, so take the minimum.
+        plugin->wakeup_time =
+            (machine->decision_time < plugin->next->wakeup_time)
+            ? machine->decision_time:
+            plugin->next->wakeup_time;
     // (machine->internal_queue.empty())? plugin->next->wakeup_time:0;
 
     MDB(("%s %s wakeup_time = %u, next wants: %u\n", FORK_PLUGIN_NAME, __FUNCTION__,
@@ -1259,7 +1272,7 @@ fork_thaw_notify(PluginInstance* plugin, Time now)
         /* step_in_time_locked(plugin); */
     } else {
         MDB(("%s -- NOT sending thaw Notify upwards %s!\n", __FUNCTION__,
-             plugin_frozen(plugin)?"next is frozen":"prev has not NotifyThaw"));
+             plugin_frozen(plugin->next)?"next is frozen":"prev has not NotifyThaw"));
         UNLOCK(machine);
     }
 }
@@ -1433,7 +1446,7 @@ fork_plug(pointer	options,
             _B(terminate,  destroy_machine)
         };
     plugin_class.ref_count = 0;
-    xkb_add_plugin(&plugin_class);
+    xkb_add_plugin_class(&plugin_class);
 
     return &plugin_class;
 }
