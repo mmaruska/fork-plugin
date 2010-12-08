@@ -1,3 +1,15 @@
+fork-plugin (2.7) lucid; urgency=low
+
+  * another overhaul
+  * drop CLEAR_INTERVAL
+  * rewind_machine (actively,immediately)
+  * step_by_time fix
+  * consolidating: key_pressed_in_parallel & key_pressed_too_long
+  * no more KEEP_PREVIOUS, just the time
+  * style (& comment) cleaning
+
+ -- Michal Maruska <mmaruska@gmail.com>  Fri, 22 Oct 2010 18:29:57 +0300
+
 fork-plugin (2.6) lucid; urgency=low
 
   * c++
