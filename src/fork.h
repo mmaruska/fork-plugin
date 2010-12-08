@@ -14,6 +14,9 @@ extern "C" {
 #include <X11/keysym.h>
 #include <xorg/inputstr.h>
 
+// include/os.h
+#undef xalloc
+
 // in C++ it conflicts! (/usr/include/xorg/misc.h vs alorithm)
 #undef max
 #undef min
