@@ -619,7 +619,8 @@ apply_event_to_normal(machineRec *machine, key_event *ev, PluginInstance* plugin
         /* So, unless we see the .- trick, we do suspect: */
         if (!key_forked(machine, key) &&
             ((machine->last_released != key ) ||
-             /*todo: time_difference_more(machine->last_released_time,simulated_time, config->repeat_max) */
+             /*todo: time_difference_more(machine->last_released_time,simulated_time,
+              * config->repeat_max) */
              (simulated_time - machine->last_released_time) > (Time) config->repeat_max))
         {                       /* Emacs indenting bug: */
             change_state(machine, st_suspect);
@@ -712,7 +713,8 @@ apply_event_to_suspect(machineRec *machine, key_event *ev, PluginInstance* plugi
             /* fixme:  here we confirm, that it was not a user error.....
                bad synchro. i.e. the suspected key was just released  */
         } else {
-            /* something released, but not verificating, b/c we are in `suspect', not `confirm'  */
+            /* something released, but not verificating, b/c we are in `suspect',
+             * not `confirm'  */
             do_enqueue_event(machine, ev); // the `key'
             return;
         };
@@ -1366,7 +1368,6 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
     UNLOCK(forking_machine);
     forking_machine->decision_time = 0;
     forking_machine->current_time = 0;
-
 
     for (int i=0;i<256;i++){                   // keycode 0 is unused!
         forking_machine->forkActive[i] = 0; /* 0 = not active */
