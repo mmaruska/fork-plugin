@@ -1192,6 +1192,7 @@ ProcessEvent(PluginInstance* plugin, InternalEvent *event, Bool owner)
     machine->current_time = time_of(event);
     key_event* ev = create_handle_for_event(event, owner);
     if (!ev)			// memory problems
+        // what to do with `event' !!
         return;
 
 #if DEBUG
