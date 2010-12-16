@@ -2,26 +2,13 @@
 #define	_QUEUE_H_ 1
 
 
-#include "debug.h"
+// #include "debug.h"
 
 #include <ext/slist>
 #include <iterator>
 #include <iostream>
 #include <string>
 #include <algorithm>
-
-
-
-extern "C" {
-#include <X11/X.h>
-#include <X11/Xproto.h>
-#include <X11/Xdefs.h>
-
-#include <assert.h>
-#include <stdint.h>
-#include <xorg/input.h>
-#include <xorg/eventstr.h>
-}
 
 
 using namespace std;

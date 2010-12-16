@@ -14,6 +14,12 @@ extern "C" {
 #include <X11/keysym.h>
 #include <xorg/inputstr.h>
 
+
+#include <X11/Xdefs.h>
+#include <stdint.h>
+#include <xorg/input.h>
+#include <xorg/eventstr.h>
+
 // include/os.h
 #undef xalloc
 
@@ -23,7 +29,10 @@ extern "C" {
 };
 
 #include "config.h"
+
+#include "debug.h"
 #include "queue.h"
+
 #include "fork_requests.h"
 #include "history.h"
 
