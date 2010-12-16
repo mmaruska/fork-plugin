@@ -74,8 +74,22 @@ public:
 
     void swap (my_queue<T>& peer)
         {
+            typename slist<T*>::iterator temp;
+            temp = last_node;
+
             list.swap(peer.list);
-            iter_swap(last_node,peer.last_node);
+            
+            // iter_swap(last_node,peer.last_node);
+            if (list.empty())
+                last_node = list.begin();
+            else {
+                last_node = peer.last_node;
+            }
+
+            if (peer.list.empty())
+                peer.last_node = peer.list.begin();
+            else
+                peer.last_node = temp;
         }
 };
 
@@ -117,9 +131,12 @@ void my_queue<T>::push (const T& value)
 template<typename T>
 T* my_queue<T>::pop ()
 {
-
     T* pointer = list.front();
+
     list.pop_front();
+    // invalidate iterators
+    if (list.empty())
+        last_node = list.begin();
     return pointer;
 }
 
@@ -138,10 +155,12 @@ void my_queue<T>::slice (my_queue<T> &suffix)
     DB(("%s: %s: appending/moving all from %s:\n", __FUNCTION__, get_name(),
         suffix.get_name()));
 
-    list.splice_after(last_node,
-                      suffix.list);
-    last_node=suffix.last_node;
-
+    if (! suffix.list.empty())
+    {
+        list.splice_after(last_node,
+                          suffix.list);
+        last_node=suffix.last_node;
+    }
     DB(("%s now has %d\n", get_name(), length()));
     DB(("%s now has %d\n", suffix.get_name(), suffix.length()));
 }
