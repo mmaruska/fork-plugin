@@ -1314,7 +1314,7 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
     PluginInstance* plugin = MALLOC(PluginInstance);
     plugin->pclass = plugin_class;
     plugin->device = keybd;
-
+    plugin->frozen = FALSE;
     machineRec* forking_machine = NULL;
 
     // I create 2 config sets.  1 w/o forking.
@@ -1380,6 +1380,7 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
     AddCallback(&DeviceEventCallback, (CallbackProcPtr) mouse_call_back, (void*) plugin);
 
     plugin_class->ref_count++;
+    set_wakeup_time (plugin);
     return plugin;
 };
 
