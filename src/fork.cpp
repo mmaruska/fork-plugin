@@ -950,7 +950,7 @@ try_to_play(PluginInstance* plugin, Bool force)
 
         if (! input_queue.empty())
         {
-            key_event* ev = input_queue.pop();
+            key_event *ev = input_queue.pop();
             // if time is enough...
             step_fork_automaton_by_key(machine, ev, plugin);
         }
