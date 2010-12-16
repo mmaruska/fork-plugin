@@ -155,7 +155,7 @@ describe_key(DeviceIntPtr keybd, InternalEvent *event)
     return buffer;
 }
 
-
+#if DEBUG
 /* the returned string is in static space. don't free it! */
 static const char*
 describe_machine_state(machineRec* machine)
@@ -167,6 +167,7 @@ describe_machine_state(machineRec* machine)
              state_description[machine->state], color_reset);
     return buffer;
 }
+#endif
 
 
 /* Push the event to the next plugin. Ownership is handed over! */
