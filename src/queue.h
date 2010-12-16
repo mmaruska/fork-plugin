@@ -63,7 +63,6 @@ public:
         {
             if (m_name)
             {
-                free (m_name);
                 m_name = NULL;
             }
         }
