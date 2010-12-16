@@ -34,7 +34,7 @@
 # @inputdir@
 
 # queue.cpp
-@DRIVER_NAME@_la_SOURCES = @DRIVER_NAME@.cpp configure.cpp history.cpp fork.h circular.h queue.h
+@DRIVER_NAME@_la_SOURCES = @DRIVER_NAME@.cpp configure.cpp history.cpp fork.h circular.h queue.h config.h
 
 
 @DRIVER_NAME@_CFLAGS = @XORG_CFLAGS@ -I../include/
