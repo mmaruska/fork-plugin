@@ -1110,7 +1110,7 @@ filter_config_key_maybe(PluginInstance* plugin,const InternalEvent *event)
     return 0;
 }
 
-
+// NOW is useless
 static void
 set_wakeup_time(PluginInstance* plugin, Time now)
 {
@@ -1365,10 +1365,13 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
 
     forking_machine->state = st_normal;
     forking_machine->last_released = 0;
-
-    UNLOCK(forking_machine);
     forking_machine->decision_time = 0;
     forking_machine->current_time = 0;
+    // set_wakeup_time(plugin, 0);
+    plugin->wakeup_time = 0;
+
+    UNLOCK(forking_machine);
+
 
     for (int i=0;i<256;i++){                   // keycode 0 is unused!
         forking_machine->forkActive[i] = 0; /* 0 = not active */
@@ -1383,7 +1386,7 @@ make_machine(DeviceIntPtr keybd, DevicePluginRec* plugin_class)
     AddCallback(&DeviceEventCallback, (CallbackProcPtr) mouse_call_back, (void*) plugin);
 
     plugin_class->ref_count++;
-    set_wakeup_time (plugin);
+
     return plugin;
 };
 
