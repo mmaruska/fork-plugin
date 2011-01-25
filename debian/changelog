@@ -1,3 +1,9 @@
+fork-plugin (2.8) maverick; urgency=low
+
+  * dependencies on Maverick Xorg version
+
+ -- Michal Maruska <mmaruska@gmail.com>  Tue, 25 Jan 2011 11:20:52 +0100
+
 fork-plugin (2.7) lucid; urgency=low
 
   * another overhaul
