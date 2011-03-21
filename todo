@@ -1,4 +1,5 @@
 
+
 * todo: activate tracing/debugging of other parts of X.
   and also here! make more levels
 
@@ -11,7 +12,53 @@ apa   vs  "
 
 * time slot in the machine object
 
-        
+
 * uSE -> u {s-modifier}-e
 special timing ??
 
+
+
+* code:
+**  todo:  "%lu" on 32bit!
+#define TIME_FMT  ""
+
+
+
+** make the machine a C++ object (class). with its methods?
+
+** I need a semi-assert: assert, or just print warning.
+
+
+** we should store the info on the really pressed keycode
+   ... i.e. send a RawPress event
+
+
+** fixme:  When we change the VT, we should release all forked stuff!
+   Simply push e EOF event.
+
+
+** all functions should be *.so local (static), accessible only via
+   slots in exported structure!
+
+** possible bug:
+   time 0 could be a valid time?
+   CurrentTime is 0.
+
+   timeouts (per key, or global) must not be changed while we use them.
+
+
+
+** performance enhancement:
+   the 0 config could  be just  a NULL pointer. It consumes too much memory, maybe! */
+
+** mouse stuff is run in a signal handler!
+   any entry in here must  start w/  machine->lock = 1; and end w/ machine->lock = 0;
+
+   bug: mouse (FORCE) vs replaying ..... un freeze  & reconfig i should replay even
+   output_queue!
+
+
+
+
+** How to check at compile time? that a #define is string (not number)?
+  gcc -DVERSION 1     ... how to have it "1" ?
