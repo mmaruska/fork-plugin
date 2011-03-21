@@ -1,3 +1,27 @@
+fork-plugin (2.8.4) maverick; urgency=low
+
+  * fix module install path. & Git clean
+
+ -- Michal Maruska <mmaruska@gmail.com>  Mon, 21 Mar 2011 21:23:59 +0100
+
+fork-plugin (2.8.3) maverick; urgency=low
+
+  * xserver fixed
+
+ -- Michal Maruska <mmaruska@gmail.com>  Mon, 07 Feb 2011 22:08:45 +0100
+
+fork-plugin (2.8.2) maverick; urgency=low
+
+  * fix dependencies for the fixed xorg-server version
+
+ -- Michal Maruska <mmaruska@gmail.com>  Mon, 07 Feb 2011 16:19:12 +0100
+
+fork-plugin (2.8.1) maverick; urgency=low
+
+  * fix dependencies
+
+ -- Michal Maruska <mmaruska@gmail.com>  Mon, 07 Feb 2011 13:08:01 +0100
+
 fork-plugin (2.8) maverick; urgency=low
 
   * dependencies on Maverick Xorg version
