@@ -22,10 +22,10 @@
 
 # Initialize Autoconf
 AC_PREREQ(2.60)
-AC_INIT([xkb-plugin],
+AC_INIT([fork-plugin],
         [1.4.1],
         [https://bugs.freedesktop.org/enter_bug.cgi?product=xorg],
-        [xkb-plugin])
+        [fork-plugin])
 AC_CONFIG_SRCDIR([Makefile.am])
 AC_CONFIG_HEADERS([config.h])
 
