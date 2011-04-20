@@ -1116,23 +1116,23 @@ set_wakeup_time(PluginInstance* plugin, Time now)
 {
     machineRec* machine = plugin_machine(plugin);
     CHECK_LOCKED(machine);
-    if (!((machine->state == st_verify)
-          || (machine->state == st_suspect)))
-        plugin->wakeup_time = plugin->next->wakeup_time;
-    else
+    if ((machine->state == st_verify)
+          || (machine->state == st_suspect))
         // we are indeed waiting, so take the minimum.
         plugin->wakeup_time =
-        // fixme:  but ZERO has certain meaning!
+            // fixme:  but ZERO has certain meaning!
             (plugin->next->wakeup_time == 0)?
             machine->decision_time :
             // MIN
             ((machine->decision_time < plugin->next->wakeup_time)
-            ? machine->decision_time:
-             plugin->next->wakeup_time);
+             ? machine->decision_time:
+             plugin->next->wakeup_time);        
+    else
+        plugin->wakeup_time = plugin->next->wakeup_time;
     // (machine->internal_queue.empty())? plugin->next->wakeup_time:0;
 
-    MDB(("%s %s wakeup_time = %u, next wants: %u\n", FORK_PLUGIN_NAME, __FUNCTION__,
-         (int)plugin->wakeup_time, (int)plugin->next->wakeup_time));
+    MDB(("%s %s wakeup_time = %u, next wants: %u, we %u\n", FORK_PLUGIN_NAME, __FUNCTION__,
+         (int)plugin->wakeup_time, (int)plugin->next->wakeup_time,machine->decision_time));
 }
 
 
