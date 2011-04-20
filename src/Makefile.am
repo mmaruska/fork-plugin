@@ -30,8 +30,8 @@
 # TODO: -nostdlib/-Bstatic/-lgcc platform magic, not installing the .a, etc.
 @DRIVER_NAME@_la_LTLIBRARIES = @DRIVER_NAME@.la
 @DRIVER_NAME@_la_LDFLAGS = -module -avoid-version --no-export-dynamic
-@DRIVER_NAME@_ladir = /usr/lib/modules/xkb-plugins/
-# @inputdir@
+@DRIVER_NAME@_ladir = @inputdir@
+#/usr/lib/xorg/modules
 
 # queue.cpp
 @DRIVER_NAME@_la_SOURCES = @DRIVER_NAME@.cpp configure.cpp history.cpp fork.h circular.h queue.h config.h

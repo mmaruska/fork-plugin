@@ -57,7 +57,8 @@ AC_ARG_WITH(xorg-module-dir,
                            [Default xorg module directory [[default=$libdir/xorg/modules]]]),
             [moduledir="$withval"],
             [moduledir="$libdir/xorg/modules"])
-inputdir=${moduledir}/input
+inputdir=${moduledir}
+# /input
 AC_SUBST(inputdir)
 
 
