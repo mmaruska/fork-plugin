@@ -1,3 +1,9 @@
+fork-plugin (2.8.5) maverick; urgency=low
+
+  * fix bug & install path
+
+ -- Michal Maruska <mmaruska@gmail.com>  Thu, 21 Apr 2011 00:07:12 +0200
+
 fork-plugin (2.8.4) maverick; urgency=low
 
   * fix module install path. & Git clean
