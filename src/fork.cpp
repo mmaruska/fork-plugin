@@ -1122,9 +1122,13 @@ set_wakeup_time(PluginInstance* plugin, Time now)
     else
         // we are indeed waiting, so take the minimum.
         plugin->wakeup_time =
-            (machine->decision_time < plugin->next->wakeup_time)
+        // fixme:  but ZERO has certain meaning!
+            (plugin->next->wakeup_time == 0)?
+            machine->decision_time :
+            // MIN
+            ((machine->decision_time < plugin->next->wakeup_time)
             ? machine->decision_time:
-            plugin->next->wakeup_time;
+             plugin->next->wakeup_time);
     // (machine->internal_queue.empty())? plugin->next->wakeup_time:0;
 
     MDB(("%s %s wakeup_time = %u, next wants: %u\n", FORK_PLUGIN_NAME, __FUNCTION__,
