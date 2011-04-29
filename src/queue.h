@@ -111,7 +111,9 @@ bool my_queue<T>::empty () const
 template<typename T>
 void my_queue<T>::push (T* value)
 {
+#if DEBUG > 1
     DB(("%s: %s: now %d + 1\n", __FUNCTION__, get_name(), length()));
+#endif
     if (!empty ()) {
         last_node = list.insert_after(last_node, value);
     } else {
@@ -152,8 +154,10 @@ const T* my_queue<T>::front () const
 template<typename T>
 void my_queue<T>::slice (my_queue<T> &suffix)
 {
+#if DEBUG > 1
     DB(("%s: %s: appending/moving all from %s:\n", __FUNCTION__, get_name(),
         suffix.get_name()));
+#endif
 
     if (! suffix.list.empty())
     {
@@ -161,8 +165,10 @@ void my_queue<T>::slice (my_queue<T> &suffix)
                           suffix.list);
         last_node=suffix.last_node;
     }
+#if DEBUG > 1
     DB(("%s now has %d\n", get_name(), length()));
     DB(("%s now has %d\n", suffix.get_name(), suffix.length()));
+#endif
 }
 
 

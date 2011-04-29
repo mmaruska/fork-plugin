@@ -466,7 +466,7 @@ do_confirm_fork(machineRec *machine, key_event *ev, PluginInstance* plugin)
 
     /* fixme: ev is the just-read event. But that is surely not the head
        of queue (which is confirmed to fork) */
-    DB(("confirm:\n"));
+    MDB(("confirm:\n"));
     machine->internal_queue.push(ev);
     activate_fork(machine, plugin);
 }
@@ -571,7 +571,7 @@ step_fork_automaton_by_time(machineRec *machine, PluginInstance* plugin, Time cu
 
 
     /* So, we were woken too early. */
-    DB(("*** %s: returning with some more time-to-wait: %u (prematurely woken)\n", __FUNCTION__,
+    MDB(("*** %s: returning with some more time-to-wait: %u (prematurely woken)\n", __FUNCTION__,
         machine->decision_time - current_time));
     return false;
 }
@@ -753,7 +753,7 @@ apply_event_to_suspect(machineRec *machine, key_event *ev, PluginInstance* plugi
             // well, this is an abuse ... this should never be 0.
             if (decision_time == 0)
             {
-                DB(("absurd\n")); // this means that verificator key verifies immediately!
+                MDB(("absurd\n")); // this means that verificator key verifies immediately!
             }
             if (decision_time < machine->decision_time)
                 machine->decision_time = decision_time;
@@ -886,7 +886,7 @@ step_fork_automaton_by_key(machineRec *machine, key_event *ev, PluginInstance* p
     if ((key_forked(machine, key)) && press_p(event)
         && (key != machine->forkActive[key])) // not `self_forked'
     {
-        DB(("%s: the key is forked, ignoring\n", __FUNCTION__));
+        MDB(("%s: the key is forked, ignoring\n", __FUNCTION__));
         mxfree(ev->event, ev->event->any.length);
         mxfree(ev, sizeof(key_event));
         return;
@@ -924,7 +924,7 @@ step_fork_automaton_by_key(machineRec *machine, key_event *ev, PluginInstance* p
             return;
         }
         default:
-            DB(("----------unexpected state---------\n"));
+            MDB(("----------unexpected state---------\n"));
     }
 }
 
@@ -1162,9 +1162,10 @@ create_handle_for_event(InternalEvent *event, bool owner)
     };
 
     memcpy(qe, event, event->any.length);
+#if DEBUG > 1
     DB(("+++ accepted new event: %s\n",
         event_names[event->any.type - 2 ]));
-
+#endif
     ev->event = qe;
     ev->forked = 0;
     return ev;
