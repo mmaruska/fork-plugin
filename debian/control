@@ -2,12 +2,12 @@ Source: fork-plugin
 Section: x11
 Priority: optional
 Maintainer: Michal Maruska <mmaruska@gmail.com>
-Build-Depends: cdbs, debhelper (>= 5), xserver-xorg-dev (= 2:1.9.0-0ubuntu7.3mmc3), pkg-config
+Build-Depends: cdbs, debhelper (>= 5), xserver-xorg-dev (= 2:1.10.1-1ubuntu1.2mmc1), pkg-config
 Standards-Version: 3.7.2
 
 Package: fork-plugin
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, xserver-xorg-core (= 2:1.9.0-0ubuntu7.3mmc3)
+Depends: ${shlibs:Depends}, ${misc:Depends}, xserver-xorg-core (= 2:1.10.1-1ubuntu1.2mmc1)
 Description: A plugin for the input processing pipeline in Xorg server.
  Keys can be changed to other keycodes (reasonable only modifiers), when certain pattern is detected:
  parallelism, or the key is pressed for a long time, or mouse is moved.

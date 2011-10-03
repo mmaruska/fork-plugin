@@ -1,3 +1,9 @@
+fork-plugin (2.8.7) natty; urgency=low
+
+  * recompile for natty
+
+ -- Michal Maruska <mmaruska@gmail.com>  Mon, 03 Oct 2011 09:20:34 +0200
+
 fork-plugin (2.8.6) maverick; urgency=low
 
   * disable all logging.
