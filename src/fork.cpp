@@ -1012,16 +1012,12 @@ filter_config_key(PluginInstance* plugin,const InternalEvent *event)
     if (press_p(event))
         switch (detail_of(event)) {
             case 110:
-            {
                 machineRec* machine = plugin_machine(plugin);
                 LOCK(machine);
                 dump_last_events(plugin);
                 UNLOCK(machine);
                 break;
-            }
-
             case 19:
-            {
                 machineRec* machine = plugin_machine(plugin);
                 LOCK(machine);
                 machine_switch_config(plugin, machine,0); // current ->toggle ?
@@ -1030,9 +1026,7 @@ filter_config_key(PluginInstance* plugin,const InternalEvent *event)
                 /* fixme: but this is default! */
                 machine->forkActive[detail_of(event)] = 0; /* ignore the release as well. */
                 break;
-            }
             case 10:
-            {
                 machineRec* machine = plugin_machine(plugin);
 
                 LOCK(machine);
@@ -1040,9 +1034,7 @@ filter_config_key(PluginInstance* plugin,const InternalEvent *event)
                 UNLOCK(machine);
                 machine->forkActive[detail_of(event)] = 0;
                 break;
-            }
             default:            /* todo: remove this: */
-            {
                 if (key_to_fork == 0){
                     key_to_fork = detail_of(event);
                 } else {
@@ -1050,7 +1042,7 @@ filter_config_key(PluginInstance* plugin,const InternalEvent *event)
                     machine->config->fork_keycode[key_to_fork] = detail_of(event);
                     key_to_fork = 0;
                 }
-            }};
+            };
     // should we update the XKB `down' array, to signal that the key is up/down?
     return -1;
 }
