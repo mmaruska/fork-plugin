@@ -1433,7 +1433,7 @@ fork_plug(pointer	options,
           int		*errmaj,
           int		*errmin)
 {
-    DB(("%s\n", __FUNCTION__));
+    ErrorF("%s: version %d\n", __FUNCTION__, PLUGIN_VERSION);
     static struct _DevicePluginRec plugin_class =
         {
             // slot name,     value
