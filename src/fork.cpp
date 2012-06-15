@@ -262,7 +262,7 @@ output_event(key_event* ev, PluginInstance* plugin)
 
 /* note, that after this EV could point to a deallocated memory!
  * bad macro: evaluates EV twice. */
-#define EMIT_EVENT(ev) {output_event(ev, plugin); ev=NULL;}
+#define EMIT_EVENT(ev) {output_event((ev), plugin); ev=NULL;}
 
 /**
  * Operations on the machine
