@@ -219,6 +219,9 @@ try_to_output(PluginInstance* plugin)
         LOCK(machine);
     };
 
+    // interesting: after handing over, the NEXT might need to be refreshed.
+    // if that plugin is gone. todo!
+
     if (!plugin_frozen(next)) {
         // we should push the time!
         Time now;
