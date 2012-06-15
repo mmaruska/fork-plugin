@@ -299,12 +299,14 @@ inline Time
 verification_interval_of(fork_configuration* config,
                          KeyCode code, KeyCode verificator)
 {
-    return get_value_from_matrix (config->verification_interval, code, verificator);
+    return get_value_from_matrix (config->verification_interval, code,
+                                  verificator);
 }
 
 
 inline Time
-overlap_tolerance_of(fork_configuration* config, KeyCode code, KeyCode verificator)
+overlap_tolerance_of(fork_configuration* config, KeyCode code,
+                     KeyCode verificator)
 {
     return get_value_from_matrix (config->overlap_tolerance, code, verificator);
 }
@@ -444,7 +446,8 @@ do_enqueue_event(machineRec *machine, key_event *ev)
 
 // so the ev proves, that the current event is not forked.
 static void
-do_confirm_non_fork_by(machineRec *machine, key_event *ev, PluginInstance* plugin)
+do_confirm_non_fork_by(machineRec *machine, key_event *ev,
+                       PluginInstance* plugin)
 {
     assert(machine->decision_time == 0);
     change_state(machine, st_deactivated);
@@ -486,10 +489,11 @@ do_confirm_fork(machineRec *machine, key_event *ev, PluginInstance* plugin)
 Time
 key_pressed_too_long(machineRec *machine, Time current_time)
 {
-    int verification_interval = verification_interval_of(machine->config,
-                                                         machine->suspect,
-                                                         // this can be 0 (& should be, unless)
-                                                         machine->verificator);
+    int verification_interval =
+        verification_interval_of(machine->config,
+                                 machine->suspect,
+                                 // this can be 0 (& should be, unless)
+                                 machine->verificator);
     Time decision_time = machine->suspect_time + verification_interval;
 
     MDB(("time: verification_interval = %dms elapsed so far =%dms\n",
@@ -516,7 +520,8 @@ key_pressed_in_parallel(machineRec *machine, Time current_time)
     if (decision_time <= current_time) {
         return 0;
     } else {
-        MDB(("time: overlay interval = %dms elapsed so far =%dms\n", overlap_tolerance,
+        MDB(("time: overlay interval = %dms elapsed so far =%dms\n",
+             overlap_tolerance,
              (int) (current_time - machine->verificator_time)));
 
         MDB(("suspected = %d, verificator %d. Times: overlap %d, "
@@ -530,14 +535,16 @@ key_pressed_in_parallel(machineRec *machine, Time current_time)
 
 
 static bool
-step_fork_automaton_by_time(machineRec *machine, PluginInstance* plugin, Time current_time)
+step_fork_automaton_by_time(machineRec *machine, PluginInstance* plugin,
+                            Time current_time)
 {
     // confirm fork:
     int reason;
     MDB(("%s%s%s state: %s, queue: %d, time: %u key: %d\n",
          fork_color, __FUNCTION__, color_reset,
          describe_machine_state (machine),
-         machine->internal_queue.length (), (int)current_time, machine->suspect));
+         machine->internal_queue.length (), (int)current_time,
+         machine->suspect));
 
     /* First, I try the simple (fork-by-one-keys).
      * If that works, -> fork! Otherwise, I try w/ 2-key forking, overlapping.
@@ -569,8 +576,9 @@ step_fork_automaton_by_time(machineRec *machine, PluginInstance* plugin, Time cu
 
 
     /* So, we were woken too early. */
-    MDB(("*** %s: returning with some more time-to-wait: %u (prematurely woken)\n", __FUNCTION__,
-        machine->decision_time - current_time));
+    MDB(("*** %s: returning with some more time-to-wait: %u"
+         "(prematurely woken)\n", __FUNCTION__,
+         machine->decision_time - current_time));
     return false;
 }
 
@@ -673,7 +681,8 @@ apply_event_to_normal(machineRec *machine, key_event *ev, PluginInstance* plugin
  *  Second    <-- we are here.
  */
 static void
-apply_event_to_suspect(machineRec *machine, key_event *ev, PluginInstance* plugin)
+apply_event_to_suspect(machineRec *machine, key_event *ev,
+                       PluginInstance* plugin)
 {
     InternalEvent* event = ev->event;
     Time simulated_time = time_of(event);
@@ -961,7 +970,8 @@ try_to_play(PluginInstance* plugin, Bool force)
                 return;
         }
     }
-    /* assert(!plugin_frozen(plugin->next)   ---> queue_empty(machine->input_queue)) */
+    /* assert(!plugin_frozen(plugin->next)   --->
+     *              queue_empty(machine->input_queue)) */
 }
 
 
