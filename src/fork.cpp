@@ -392,15 +392,14 @@ activate_fork(machineRec *machine, PluginInstance* plugin)
         ev->event->device_event.detail.key = machine->config->fork_keycode[forked_key];
 
     change_state(machine, st_activated);
-    EMIT_EVENT(ev);
-
     MDB(("%s suspected: %d-> forked to: %d,  internal queue is long: %d, %s\n", __FUNCTION__,
          forked_key,
          machine->config->fork_keycode[forked_key],
          machine->internal_queue.length (),
          describe_machine_state(machine)));
-
     rewind_machine(machine);
+
+    EMIT_EVENT(ev);
 }
 
 
@@ -456,9 +455,9 @@ do_confirm_non_fork_by(machineRec *machine, key_event *ev,
 
     key_event* non_forked_event = machine->internal_queue.pop();
     MDB(("this is not a fork! %d\n", detail_of(non_forked_event->event)));
-    EMIT_EVENT(non_forked_event);
-
     rewind_machine(machine);
+
+    EMIT_EVENT(non_forked_event);
 }
 
 // so EV confirms fork of the current event.
