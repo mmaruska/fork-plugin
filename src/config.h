@@ -6,7 +6,7 @@
 #ifndef VERSION_STRING
 #define VERSION_STRING "(unknown version)"
 #endif
-#define PLUGIN_VERSION 33
+#define PLUGIN_VERSION 34
 
 
 // use -DNDEBUG to avoid asserts!
