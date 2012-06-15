@@ -1008,17 +1008,18 @@ int                      // return, if config-mode continues.
 filter_config_key(PluginInstance* plugin,const InternalEvent *event)
 {
     static KeyCode key_to_fork = 0;         //  what key we want to configure
+    machineRec* machine;
 
     if (press_p(event))
         switch (detail_of(event)) {
             case 110:
-                machineRec* machine = plugin_machine(plugin);
+                machine = plugin_machine(plugin);
                 LOCK(machine);
                 dump_last_events(plugin);
                 UNLOCK(machine);
                 break;
             case 19:
-                machineRec* machine = plugin_machine(plugin);
+                machine = plugin_machine(plugin);
                 LOCK(machine);
                 machine_switch_config(plugin, machine,0); // current ->toggle ?
                 UNLOCK(machine);
@@ -1027,7 +1028,7 @@ filter_config_key(PluginInstance* plugin,const InternalEvent *event)
                 machine->forkActive[detail_of(event)] = 0; /* ignore the release as well. */
                 break;
             case 10:
-                machineRec* machine = plugin_machine(plugin);
+                machine = plugin_machine(plugin);
 
                 LOCK(machine);
                 machine_switch_config(plugin, machine,1); // current ->toggle ?
