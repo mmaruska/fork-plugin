@@ -1,3 +1,21 @@
+fork-plugin (2.9) oneiric; urgency=low
+
+  * clean C macros a bit
+  * switch cases don't not need braces.
+  * opening braces on the same line as IF
+  * point out a possible (future) issue
+  * macro
+  * reformat for 80-column
+  * bugfix: change the state atomically
+  * SQ: switch-case vs machine declaration ... fix
+  * when loading _always_ report the version
+  * change the version
+  * debian: don't ignore errors
+  * and fix: accept the "clean" target
+  * but don't fail if no Makefile (generated yet)
+
+ -- Michal Maruska <mmaruska@gmail.com>  Sat, 16 Jun 2012 15:18:27 +0200
+
 fork-plugin (2.8.8) oneiric; urgency=low
 
   * new ubuntu release
