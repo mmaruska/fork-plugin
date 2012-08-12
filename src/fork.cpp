@@ -1119,7 +1119,7 @@ set_wakeup_time(PluginInstance* plugin, Time now)
             // MIN
             ((machine->decision_time < plugin->next->wakeup_time)
              ? machine->decision_time:
-             plugin->next->wakeup_time);        
+             plugin->next->wakeup_time);
     else
         plugin->wakeup_time = plugin->next->wakeup_time;
     // (machine->internal_queue.empty())? plugin->next->wakeup_time:0;
