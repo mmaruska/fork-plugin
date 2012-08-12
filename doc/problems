@@ -7,18 +7,16 @@ pause key:
 /* down array:
     * used
        /p/xfree-4.3.99.901-r1/work/xc/programs/Xserver/hw/xfree86/common/atKeynames.h
-     macro: #define KeyPressed(k) (keyc->down[k >> 3] & (1 << (k & 7)))   
+     macro: #define KeyPressed(k) (keyc->down[k >> 3] & (1 << (k & 7)))
 
        inverted
      /p/xfree-4.3.99.901-r1/work/xc/programs/Xserver/hw/xfree86/common/xf86Events.c
 
-     modified:     
+     modified:
      /p/xfree-4.3.99.901-r1/work/xc/programs/Xserver/dix/events.c
      in    CoreProcessKeyboardEvent (xE, keybd, count)
 
-
     on ps/2 keyboard Pause key works differently than on a usb one.  due to kernel drivers?
-    normal keys produce the release only on physical release.
     normal keys produce the release only on physical release.
     on USB, you see the release when you release physically.
    */

@@ -1,4 +1,5 @@
 
+* What it is
 This is a plugin for an alternative (pipeline) architecture of
 key-event processing in Xorg server.
 
@@ -12,7 +13,7 @@ http://www.ruska.it/michal/fork.html
 
 
 
-Implementation:
+* Implementation:
 
 We are called through these calls:
 
@@ -28,4 +29,23 @@ and can change some Events (the keycode).
 
 There is also synchronization with device Freeze/Thaw.
 - fork_thaw_notify
+
+
+* Configuration parameters:
+
+** Matrix verification_interval:
+       verificator   0
+     +--------------------
+code |  time       per-se
+
+
+This much after. code.
+
+
+** overlap_tolerance
+
+
+
+* bit map
+Forkable.
 
