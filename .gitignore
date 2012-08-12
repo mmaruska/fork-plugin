@@ -1,3 +1,7 @@
+useless/
+src/old
+old/
+debian/fork-plugin
 #
 #		X.Org module default exclusion patterns
 #		The next section if for module specific patterns
@@ -91,3 +95,4 @@ src/future.cpp
 clean-repo
 
 debian/fork-plugin
+
