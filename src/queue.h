@@ -78,7 +78,7 @@ public:
             temp = last_node;
 
             list.swap(peer.list);
-            
+
             // iter_swap(last_node,peer.last_node);
             if (list.empty())
                 last_node = list.begin();

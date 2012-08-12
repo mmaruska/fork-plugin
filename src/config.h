@@ -6,12 +6,14 @@
 #ifndef VERSION_STRING
 #define VERSION_STRING "(unknown version)"
 #endif
+
 #define PLUGIN_VERSION 34
 
 
 // use -DNDEBUG to avoid asserts!
 // Trace + debug:
 #define DEBUG 1
+
 // I like colored tracing (in 256-color xterm)
 #define USE_COLORS 1
 

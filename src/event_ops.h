@@ -1,4 +1,4 @@
-// 
+//
 
 inline Bool
 release_p(const InternalEvent* event)

@@ -5,7 +5,7 @@
 
 #if DEBUG
 
-#if USE_COLORS 
+#if USE_COLORS
 #define escape_sequence "\x1b"
 #define info_color "\x1b[47;31m"
 #define fork_color "\x1b[47;30m"
