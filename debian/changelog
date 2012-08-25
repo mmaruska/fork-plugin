@@ -1,3 +1,13 @@
+fork-plugin (2.10) precise; urgency=low
+
+  * build for Precise
+  * format: spaces
+  * docs
+  * format
+  * gitignore for building in-tree!
+
+ -- Michal Maruska <mmaruska@gmail.com>  Sat, 25 Aug 2012 22:12:37 +0200
+
 fork-plugin (2.9) oneiric; urgency=low
 
   * clean C macros a bit
