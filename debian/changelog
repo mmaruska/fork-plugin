@@ -1,4 +1,4 @@
-fork-plugin (2.10) precise; urgency=low
+fork-plugin (2.10) precise unstable; urgency=low
 
   * build for Precise
   * format: spaces
