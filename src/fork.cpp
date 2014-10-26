@@ -1428,8 +1428,8 @@ destroy_machine(PluginInstance* plugin)
 #define _B(name, value) name : value
 #endif
 
-static pointer /*DevicePluginRec* */
-fork_plug(pointer	options,
+static void* /*DevicePluginRec* */
+fork_plug(void	        *options,
           int		*errmaj,
           int		*errmin)
 {
