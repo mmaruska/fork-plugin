@@ -1,3 +1,9 @@
+fork-plugin (2.11) precise unstable; urgency=medium
+
+  * drop "pointer" type
+
+ -- Michal Maruska <mmaruska@gmail.com>  Mon, 27 Oct 2014 00:07:11 +0100
+
 fork-plugin (2.10) precise unstable; urgency=low
 
   * build for Precise
