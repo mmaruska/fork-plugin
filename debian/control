@@ -2,7 +2,7 @@ Source: fork-plugin
 Section: x11
 Priority: optional
 Maintainer: Michal Maruska <mmaruska@gmail.com>
-Build-Depends: cdbs, debhelper (>= 5), xserver-xorg-dev (>= 2:1.12.1.902-1maruska1), pkg-config
+Build-Depends: debhelper (>= 5), xserver-xorg-dev (>= 2:1.12.1.902-1maruska1), pkg-config, xutils-dev
 Standards-Version: 3.7.2
 
 Package: fork-plugin
