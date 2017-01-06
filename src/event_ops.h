@@ -33,5 +33,5 @@ inline const char*
 event_type_brief(InternalEvent *event)
 {
     return (press_p(event)?"down":
-	    (release_p(event)?"up":"??"));
+            (release_p(event)?"up":"??"));
 }
