@@ -18,7 +18,7 @@ extern "C" {
 #include <X11/Xdefs.h>
 #include <stdint.h>
 #include <xorg/input.h>
-// #include <xorg/eventstr.h>
+#include <xorg/eventstr.h>
 
 // include/os.h
 #undef xalloc
